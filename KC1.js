@@ -88,9 +88,7 @@ function register(username, password, email, callback) {
         "username": username,
         "password": password,
         "email":email
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function unregister(callback) {
@@ -98,27 +96,21 @@ function unregister(callback) {
         "functionname":"unregister",
         "username": this.username,
         "password": this.password
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function recoverFromUsername(username, callback) {
     sendRequest({
         "functionname":"recoverFromUsername",
         "username": username
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function recoverFromEmail(email, callback) {
     sendRequest({
         "functionname":"recoverFromEmail",
         "email": email
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function postData(fieldname, data, callback) {
@@ -130,9 +122,7 @@ function postData(fieldname, data, callback) {
         "appname": this.appname,
         "fieldname": fieldname,
         "data": data
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function getData(fieldname, callback) {
@@ -143,9 +133,7 @@ function getData(fieldname, callback) {
         "password": this.password,
         "appname": this.appname,
         "fieldname": fieldname
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 function deleteData(fieldname, callback) {
@@ -156,9 +144,7 @@ function deleteData(fieldname, callback) {
         "password": this.password,
         "appname": this.appname,
         "fieldname": fieldname
-    }, function(response){
-        callback(response);
-    });
+    }, callback(response));
 }
 
 /*

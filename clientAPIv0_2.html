@@ -1,0 +1,360 @@
+
+<!DOCTYPE HTML>
+<html lang="en">
+	<head>
+		<title>Perlenspiel | API | Saving &amp; Loading</title>
+		<meta charset="utf-8"/>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+		<meta name="description" content="Perlenspiel | API | Placeholder"/>
+		<meta name="keywords" content="perlenspiel, game, design, engine, gameclavier, moriarty, wpi"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<meta name="apple-mobile-web-app-capable" content="yes"/>
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+		<link rel="shortcut icon" href="http://users.wpi.edu/~bmoriarty/ps/favicon.png"/>
+		<link rel="apple-touch-icon" href="http://users.wpi.edu/~bmoriarty/ps/apple-touch-icon.png"/>
+		<link href='http://fonts.googleapis.com/css?family=Roboto:400,700,400italic,700italic,100' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<script type="text/javascript" src="play.js"></script>
+	</head>
+	<body onload="PSA.dots();">
+		<div id="header">
+			<p><img src="images/logosm.png" alt="[Logo]"><strong>Perlenspiel<sup class="sup3">3</sup></strong></p>
+
+			<ul id="nav">
+				<li><a href="index.html">Home</a></li>
+				<li><a href="download.html">Download</a></li>
+				<li><a href="learning.html">Learning</a></li>
+				<li><a href="examples.html">Examples</a></li>
+				<li><a href="api.html">API</a></li>
+				<li><a href="links.html">Links</a></li>
+			</ul>
+		</div>
+
+		<div id="main">
+		<p class="subhead">API | Saving &amp; Loading</p>
+
+		<p>These commands control the creation, management and use of the off site database for single player functionality.</p>
+
+		<ul class="select">
+			<li><a href="#login">login</a> ( username, password, appname, callback )</li>
+			<li><a href="#logout">logout</a> ( callback )</li>
+			<li><a href="#setserver">setServer</a> ( address, callback )</li>
+			<li><a href="#register">register</a> ( userName, password, email, callback )</li>
+			<li><a href="#unregister">unregister</a> ( callback )</li>
+			<li><a href="#recoverun">recoverFromUserName</a> ( userName, callback )</li>
+			<li><a href="#recoveremail">recoverFromEmail</a> ( email, callback )</li>
+			<li><a href="#getun">getUsername</a> ( email, callback )</li>
+			<li><a href="#postdata">postData</a> ( fieldname, data, callback )</li>
+			<li><a href="#getdata">getData</a> ( fieldname, callback )</li>
+			<li><a href="#deletedata">deleteData</a> ( fieldname, callback )</li>
+		</ul>
+
+		<div class="section">
+			<div id="login" class="dot">&nbsp;</div>
+			<p class="subhead">login ( username, password, appname, callback )</p>
+
+			<p>login() chooses a username and password to identify the user to the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>username</b> : <em>string</em></li>
+					<li><b>password</b> : <em>string</em></li>
+					<li><b>appname</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The <b>username</b> parameter indicate the user name given to the server,
+				and the <b>password</b> parameter indicate the password given to the server.
+				Both strings are required.</p>
+			<p>The <b>appname</b> parameter is unique to the application.  It distinguishes it from other applications to the server to prevent
+				data collision.</p>
+			<p>The <b>callback</b> parameter is called with a string that is the response from the server.</p>
+
+			<p><strong>Usage notes</strong></p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"username or email already in use"</p>
+
+			<p>login() returns nothing.  Upon completion of the ajax request, either successCallback is called or errorCallback is called</p>
+			<p></p>
+		</div>
+
+		<div class="section">
+			<div id="logout" class="dot">&nbsp;</div>
+			<p class="subhead">logout ( image )</p>
+
+			<p>logout() expires the session.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+			
+			<p>The <b>callback</b> parameter is called with a string that is the server's response upon completion.</p>
+			
+			<p><strong>Usage notes</strong></p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>logout() returns nothing</p>
+		</div>
+
+		<div class="section">
+			<div id="setserver" class="dot">&nbsp;</div>
+			<p class="subhead">setServer( address, callback )</p>
+
+			<p>setServer() specifies the URL or IP address of the server to message and establishes a connection.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>address</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+			</div>
+
+			<p>The required <b>address</b> parameter must be the address of the server.</p>
+			<p>The <b>callback</b> parameter is called with a string that is the response from the server.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. setServer() is required for any function that accesses the server.  If it is not called first, those functions will fail.  Note that this function is asynchronous, so anything that depends on it should be included in the callback function.
+			<p>2. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>setServer() returns nothing.</p>
+		</div>
+
+		<div class="section">
+			<div id="register" class="dot">&nbsp;</div>
+			<p class="subhead">register( userName, password, email, callback )</p>
+
+			<p>register() establishes a new account on the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>userName</b> : <em>string</em></li>
+					<li><b>password</b> : <em>string</em></li>
+					<li><b>email</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>userName</b> parameter must be distinct from all other user names in in the system.</p>
+
+			<p>The required <b>email</b> parameter must be valid email address unique from all other email address in the system.</p>
+			
+			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
+			
+			<p><strong>Usage notes</strong></p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"username or email already in use"</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>register() returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div class="section">
+			<div id="unregister" class="dot">&nbsp;</div>
+			<p class="subhead">unregister( callback )</p>
+
+			<p>unregister() deletes the current account from the server and all associated data.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. This action can not be undone.  Do not call it lightly.</p>
+			<p>2. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"invalid credentials"</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>unregister returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+		
+		<div class="section">
+			<div id="recoverun" class="dot">&nbsp;</div>
+			<p class="subhead">recoverFromUsername( userName, callback )</p>
+
+			<p>recoverFromUsername() sends an email with the username and password to the email address specified at account creation.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>userName</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>userName</b> parameter must be an existing account.</p>
+			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"user not found"</p>
+			
+			<p class="subitem">Return value</p>
+
+			<p>recoverFromUsername() returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div class="section">
+			<div id="recoveremail" class="dot">&nbsp;</div>
+			<p class="subhead">recoverFromEmail( email, callback )</p>
+
+			<p>recoverFromEmail() sends an email with the username and password to the email address specified at account creation.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>email</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>email</b> parameter must correspond to an existing account.</p>
+			<p>The required <b>callback</b> parameter must take a string that is the server's repsonse.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"user not found"</p>
+			
+			<p class="subitem">Return value</p>
+
+			<p>recoverFromEmail() returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div class="section">
+			<div id="postdata" class="dot">&nbsp;</div>
+			<p class="subhead">postData( fieldname, data, callback )</p>
+
+			<p>postData() saves arbitrary data to the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>fieldname</b> : <em>string</em></li>
+					<li><b>data</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>fieldname</b> can be anything, but the game will have to reproduce it to retrieve the data.</p>
+			<p>The required <b>data</b> can be anything that the game can itself parse.</p>
+			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. If data with that key already exists, it is overwritten.</p>
+			<p>2. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"invalid credentials"</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>postData returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div class="section">
+			<div id="getdata" class="dot">&nbsp;</div>
+			<p class="subhead">getData( fieldname, callback )</p>
+
+			<p>getData() retrieves data to the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>fieldname</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>fieldname</b> is the same name used as when the data is posted.</p>
+			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"invalid credentials"
+					"data not found"</p>
+			
+			<p class="subitem">Return value</p>
+
+			<p>getData returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+		
+		<div class="section">
+			<div id="deletedata" class="dot">&nbsp;</div>
+			<p class="subhead">deleteData( fieldname, callback )</p>
+
+			<p>deleteData() deletes the specified data from the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>fieldname</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>fieldname</b> is the same name used as when the data is posted.</p>
+			<p>The required <b>callback</b> parameter must take a string that describes the returned error.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. If data with that key doesn't exist, nothing happens.</p>
+			<p>2. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
+					"invalid credentials"
+					"data not found"</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>postData returns nothing, but the successCallback function or errorCallback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div id="footer">
+			<p>Interactive Media and Game Development<br/>
+				Worcester Polytechnic Institute<br/>
+				100 Institute Road, Worcester, MA 01609 USA<br/>
+				<a href="http://imgd.wpi.edu">imgd.wpi.edu</a><br/>&nbsp;</p>
+		</div>
+	</body>
+</html>
