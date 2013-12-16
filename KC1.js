@@ -37,7 +37,7 @@ setServer("http://127.0.0.1:1337/", function(response){
 setTimeout(function(){}, 10000);
 
 //endregion
-function sendRequest(method, body, callback) {
+function sendRequest(method, funcLoc, body, callback) {
     var request = new XMLHttpRequest();
     request.onreadystatechange = function(){
         if(request.readyState == 4) {
@@ -45,7 +45,7 @@ function sendRequest(method, body, callback) {
             callback(JSON.parse(request.responseText));
         }
     };
-    request.open(method, server_address, true);
+    request.open(method, server_address + funcLoc, true);
     request.send(JSON.stringify(body));
 }
 
@@ -65,7 +65,8 @@ function setServer(address, callback) {
 
 function login(username, password, appname, callback) {
     console.log("attempting to log in");
-    sendRequest("PUT", {
+    sendRequest("GET",
+        "/users", {
         "functionname": "checkCredentials",
         "username": username,
         "password": password
@@ -83,7 +84,8 @@ function login(username, password, appname, callback) {
 
 function register(username, password, email, callback) {
     console.log("attempting to register user");
-    sendRequest("POST", {
+    sendRequest("POST",
+        "/users", {
         "functionname":"register",
         "username": username,
         "password": password,
@@ -92,7 +94,8 @@ function register(username, password, email, callback) {
 }
 
 function unregister(callback) {
-    sendRequest("DELETE", {
+    sendRequest("DELETE",
+        "/users", {
         "functionname":"unregister",
         "username": this.username,
         "password": this.password
@@ -100,14 +103,16 @@ function unregister(callback) {
 }
 
 function recoverFromUsername(username, callback) {
-    sendRequest("GET", {
+    sendRequest("GET",
+        "/users", {
         "functionname":"recoverFromUsername",
         "username": username
     }, callback);
 }
 
 function recoverFromEmail(email, callback) {
-    sendRequest("GET", {
+    sendRequest("GET",
+        "/users", {
         "functionname":"recoverFromEmail",
         "email": email
     }, callback);
@@ -115,20 +120,9 @@ function recoverFromEmail(email, callback) {
 
 function postData(fieldname, data, callback) {
     console.log("attempting to post data");
-    sendRequest("POST", {
+    sendRequest("PUT",
+        "/" + this.username, {
         "functionname":"postData",
-        "username": this.username,
-        "password": this.password,
-        "appname": this.appname,
-        "fieldname": fieldname,
-        "data": data
-    }, callback);
-}
-
-function updateData(fieldname, data, callback) {
-    console.log("attempting to update data");
-    sendRequest("PUT", {
-        "functionname":"updateData",
         "username": this.username,
         "password": this.password,
         "appname": this.appname,
@@ -139,7 +133,8 @@ function updateData(fieldname, data, callback) {
 
 function getData(fieldname, callback) {
     console.log("attempting to get data");
-    sendRequest("GET", {
+    sendRequest("GET",
+        "/" + this.username, {
         "functionname":"getData",
         "username": this.username,
         "password": this.password,
@@ -150,7 +145,8 @@ function getData(fieldname, callback) {
 
 function deleteData(fieldname, callback) {
     console.log("attempting to delete data");
-    sendRequest("DELETE", {
+    sendRequest("DELETE",
+        "/" + this.username, {
         "functionname":"deleteData",
         "username": this.username,
         "password": this.password,

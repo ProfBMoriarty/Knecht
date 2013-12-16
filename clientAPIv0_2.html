@@ -45,7 +45,6 @@
 			<li><a href="#recoveremail">recoverFromEmail</a> ( email, callback )</li>
 			<li><a href="#getun">getUsername</a> ( email, callback )</li>
 			<li><a href="#postdata">postData</a> ( fieldname, data, callback )</li>
-			<li><a href="#updatedata">updateData</a> ( fieldname, data, callback )</li>
 			<li><a href="#getdata">getData</a> ( fieldname, callback )</li>
 			<li><a href="#deletedata">deleteData</a> ( fieldname, callback )</li>
 		</ul>
@@ -289,38 +288,6 @@
 
 			<p>postData returns nothing, but the callback function is called asynchronously when it completes.</p>
 		</div>
-		
-		<div class="section">
-			<div id="updatedata" class="dot">&nbsp;</div>
-			<p class="subhead">postData( fieldname, data, callback )</p>
-
-			<p>updateData() updates arbitrary data on the server.</p>
-
-			<div class="specs">
-				<p>Parameters:</p>
-				<ol>
-					<li><b>fieldname</b> : <em>string</em></li>
-					<li><b>data</b> : <em>string</em></li>
-					<li><b>callback</b> : <em>function</em></li>
-				</ol>
-				<p>Returns: nothing</p>
-			</div>
-
-			<p>The required <b>fieldname</b> must be the name of a body of data previously given to the server with the postData() function.</p>
-			<p>The required <b>data</b> can be anything that the game can itself parse.</p>
-			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
-
-			<p class="subitem">Usage notes</p>
-
-			<p>1. If data with that key doesn't exist, use postData instead.</p>
-			<p>2. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
-					If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:
-					"invalid credentials"</p>
-
-			<p class="subitem">Return value</p>
-
-			<p>updateData returns nothing, but the callback function is called asynchronously when it completes.</p>
-		</div>
 
 		<div class="section">
 			<div id="getdata" class="dot">&nbsp;</div>
@@ -337,7 +304,7 @@
 				<p>Returns: nothing</p>
 			</div>
 
-			<p>The required <b>fieldname</b> is the same name used as when the data is posted.</p>
+			<p>The required <b>fieldname</b> is a unique string used to identify the data.</p>
 			<p>The required <b>callback</b> parameter must take a string that is the server's response.</p>
 
 			<p class="subitem">Usage notes</p>
