@@ -5,7 +5,281 @@
 
 //region constants
 var db_config = {
-    host: "localhost",
+    host: "localhost",var K = {};
+port = 8080;
+
+(function(){
+    //region Constants
+    var db_config = {
+        host: "localhost",
+        user: "root",
+        password:"pass",
+        delay: 2000
+    };
+
+    var db_field_size = {
+        email: 252,
+        password: 32,
+        app: 64,
+        field: 64,
+        data: 0xffffff,
+        groupname: 128,
+        userlist: 0xffffff,
+        input: 0xffffff,
+        time: 64
+    };
+    //endregion
+
+    //region Globals
+    var mysql = require("mysql");
+    var url = require("url");
+    var http = require("http");
+
+    var connection;
+    //endregion
+
+    //region Initialization
+    _connect();
+    console.log("dropping db for clean testing. Remove this in final version")
+    connection.query("DROP DATABASE IF EXISTS knecht");
+    _initDatabase();
+    K.server = http.createServer(_processRequest);
+    //endregion
+
+    //region Users Functions
+    function _checkUser(email, response){
+        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
+            if(err) _finishResponse(500, response, err.toString());
+            else if(result[0] === undefined) _finishResponse(404, response);
+            else _finishResponse(200, response);
+        });
+    }
+
+    function _register(email, password, response){
+        connection.query("INSERT INTO users VALUES (?, ?);", [email, password], function(err){
+            if(err) {
+                if(err.code == "ER_DUP_ENTRY") _finishResponse(403, response);
+                else _finishResponse(500, response, err.toString());
+            }
+            else _finishResponse(200, response);
+        });
+    }
+
+    function _login(email, password, response){
+        _checkCredentials(email, password, function(){
+            _finishResponse(200, response);
+        });
+    }
+
+    function _recoverPassword(email, response){
+        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
+            if(err) _finishResponse(500, response, err.toString());
+            else if(result[0] === undefined) _finishResponse(404, response);
+            else {
+                //TODO: send recovery email
+                _finishResponse(200, response);
+            }
+        });
+    }
+
+    function _changePassword(email, password, new_password, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("UPDATE users SET password = ? WHERE email = ?;", [new_password, email], function(err){
+                if(err) _finishResponse(500, response, err.toString());
+                else _finishResponse(200, response);
+            });
+        });
+    }
+
+    function _unregister(email, password, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("DELETE FROM users WHERE email = ?;", [email], function(err){
+                if(err) _finishResponse(500, response, err.toString());
+                else connection.query("DELETE FROM user_data WHERE user = ?;", [email], function(err){
+                    if(err) _finishResponse(500, response, err.toString());
+                    else _finishResponse(200, response);
+                });
+            });
+        });
+    }
+    //endregion
+
+    //regions Users/Data functions
+
+    function _putData(email, password, app, field, data, response){
+        console.log("putting data: " + data);
+        _checkCredentials(email, password, response, function(){
+            connection.query("INSERT INTO user_data VALUES (?, ?, ?, ?)" +
+                "ON DUPLICATE KEY UPDATE data = ?;", [email, app, field, data, data], function(err){
+                if(err) _finishResponse(500, response, err.toString());
+                else _finishResponse(200, response);
+            });
+        });
+    }
+
+    function _getData(email, password, app, field, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ?;", [email, app, field], function(err, result){
+                if(err) _finishResponse(500, response, err.toString());
+                else if (result[0] === undefined) _finishResponse(404, response);
+                else _finishResponse(200, response, result[0].data);
+            });
+        });
+    }
+
+    function _deleteData(email, password, app, field, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ?;", [email, app, field], function(err){
+                if(err) _finishResponse(500, response, err.toString());
+                else _finishResponse(200, response);
+            });
+        });
+    }
+
+//endregion
+
+    function _connect(){ //recommended disconnect handling method from https://github.com/felix/node-mysql/blob/master/Readme.md
+        connection = mysql.createConnection(db_config);
+        connection.connect(function(err){
+            if(err) setTimeout(_connect, db_config.delay);
+        });
+        connection.on("error", function(err){
+            if(err.code === "PROTOCOL_CONNECTION_LOST") _connect();
+            else throw err;
+        });
+    }
+
+    function _initDatabase(){
+        connection.query("CREATE DATABASE IF NOT EXISTS knecht;", function(err){
+            if(err) throw err;
+        });
+        connection.query("USE knecht", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS users(" +
+            "email VARCHAR (" + db_field_size.email + ")," +
+            "password VARCHAR (" + db_field_size.password + ")," +
+            "PRIMARY KEY (email));", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS user_data(" +
+            "user VARCHAR (" + db_field_size.email + ")," +
+            "app VARCHAR (" + db_field_size.app + ")," +
+            "field VARCHAR (" + db_field_size.field + ")," +
+            "data TEXT (" + db_field_size.data + ")," +
+            "PRIMARY KEY (user, app, field));", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS groups(" +
+            "name VARCHAR (" + db_field_size.groupname + ")," +
+            "password VARCHAR (" + db_field_size.password + ")," +
+            "app VARCHAR (" + db_field_size.app + ")," +
+            "users TEXT (" + db_field_size.userlist + ")," +
+            "PRIMARY KEY (name));", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS inputs(" +
+            "groupname VARCHAR (" + db_field_size.groupname + ")," +
+            "user VARCHAR (" + db_field_size.email + ")," +
+            "input TEXT (" + db_field_size.input + ")," +
+            "time TEXT (" + db_field_size.time + "));",
+            function(err){
+                if(err) throw err;
+            });
+        connection.query("CREATE TABLE IF NOT EXISTS permissions(" +
+            "groupname VARCHAR (" + db_field_size.groupname + ")," +
+            "user VARCHAR (" + db_field_size.email + ")," +
+            "field VARCHAR (" + db_field_size.field + ")," +
+            "PRIMARY KEY (groupname, user, field));", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS updates(" +
+            "groupname VARCHAR (" + db_field_size.groupname + ")," +
+            "user VARCHAR (" + db_field_size.email + ")," +
+            "field VARCHAR (" + db_field_size.field + ")," +
+            "PRIMARY KEY (groupname, user, field));", function(err){
+            if(err) throw err;
+        });
+        connection.query("CREATE TABLE IF NOT EXISTS group_data(" +
+            "groupname VARCHAR (" + db_field_size.groupname + ")," +
+            "field VARCHAR (" + db_field_size.field + ")," +
+            "data TEXT (" + db_field_size.data + ")," +
+            "PRIMARY KEY (groupname, field));", function(err){
+            if(err) throw err;
+        });
+    }
+
+    function _processRequest(request, response){
+        var data = "";
+        request.on("data", function(chunk){
+            data += chunk;
+        });
+        request.on("end", function(){
+            var auth_header = request.headers['authorization'];
+            var credentials;
+            if(auth_header !== undefined) credentials = new Buffer(auth_header.split(' ')[1], 'base64').toString().split(':');
+            var parsed_url = url.parse(request.url, true);
+            switch(parsed_url.pathname){
+                case "/users":
+                    switch(request.method){
+                        case "HEAD":
+                            _checkUser(parsed_url.query.email, response);
+                            break;
+                        case "POST":
+                            _register(credentials[0], credentials[1],response);
+                            break;
+                        case "GET":
+                            _login(credentials[0], credentials[1],response);
+                            break;
+                        case "RECOVER":
+                            _recoverPassword(parsed_url.query.email, response);
+                            break;
+                        case "PATCH":
+                            _changePassword(credentials[0], credentials[1], data, response);
+                            break;
+                        case "DELETE":
+                            _unregister(credentials[0], credentials[1], response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "/users/data":
+                    switch(request.method){
+                        case "PUT":
+                            _putData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, data, response);
+                            break;
+                        case "GET":
+                            _getData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, response);
+                            break;
+                        case "DELETE":
+                            _deleteData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                default:
+                    _finishResponse(400, response);
+            }
+        });
+    }
+
+    function _checkCredentials(email, password, response, callback){
+        connection.query("SELECT 1 FROM users WHERE email = ? AND password = ?;", [email, password], function(err, result){
+            if (err) _finishResponse(500, response, err.toString());
+            else if (result[0] === undefined) _finishResponse(401, response);
+            else callback();
+        });
+    }
+
+    function _finishResponse(status, response, body){
+        response.writeHead(status);
+        response.end(body);
+    }
+})();
+
+K.server.listen(port);
     user: "root",
     password:"root"
 };
