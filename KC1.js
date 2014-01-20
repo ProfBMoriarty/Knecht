@@ -124,6 +124,121 @@ var K = {};
         request.send(body);
     }
 
+    //host functions
+    K.startGroup = function(groupName, groupPassword, callback){
+        _sendRequest("POST", "/groups?app=" + _app + "&name=" + groupName, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        }, groupPassword);
+    };
+
+    K.closeGroup = function(groupName, callback) {
+        _sendRequest("DELETE", "/groups?name=" + groupName, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.addMember = function(groupName, groupPassword, callback) {
+        _sendRequest("POST", "/groups/members?name=" + groupName, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.listMember = function(groupName, callback) {
+        _sendRequest("GET", "/groups/members?name=" + groupName, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.removeMember = function(groupName, callback) {
+        _sendRequest("DELETE", "/groups/members?name=" + groupName, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    //TODO: escape ampersands (those assholes will put ampersands in their names)
+    //TODO: set timeouts; listen should be a long time, others much shorter
+    K.grantPermission = function(groupName, member, field, callback) {
+        _sendRequest("POST", "/groups/permissions?name=" + groupName + "&member=" + member + "&field=" + field, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.revokePermission = function(groupName, member, field, callback) {
+        _sendRequest("DELETE", "/groups/permissions?name=" + groupName + "&member=" + member + "&field=" + field, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.submitUpdate = function(groupName, field, data, callback) {
+        _sendRequest("PUT", "/groups/data?name=" + groupName + "&field=" + field, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        }, JSON.stringify(data));
+    };
+
+    //this also a member function
+    K.getGroupData = function(groupName, field, callback) {
+        _sendRequest("GET", "/groups/data?name=" + groupName + "&field=" + field, function(status, result){
+            if(status === 200) callback(JSON.parse(result));
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else if(status === 404) callback(undefined);
+            else callback(K.ERROR);
+        });
+    };
+
+    //TODO:add graceful disconnect function
+
+    K.listenInputs = function(groupName, callback, acknowledgement) {
+        _sendRequest("GET", "/groups/inputs?name=" + groupName, function(status, result){
+            if(status === 200)
+            {
+                parsedResult = JSON.parse(result);
+                callback(parsedResult);
+                this.listenInputs(groupName, callback, parsedResult.timestamp)
+            }
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else if(status === 404) callback(undefined);
+            else callback(K.ERROR);
+        }, JSON.stringify(acknowledgement));
+    };
+
+    //member functions
+    K.submitInput = function(groupName, field, callback) {
+        _sendRequest("PUT", "/groups/inputs?name=" + groupName + "&field=" + field, function(status){
+            if(status === 200) callback(K.OK);
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else callback(K.ERROR);
+        });
+    };
+
+    K.listenUpdates = function(groupName, callback, acknowledgement) {
+        _sendRequest("GET", "/groups/updates?name=" + groupName, function(status, result){
+            if(status === 200)
+            {
+                parsedResult = JSON.parse(result);
+                callback(parsedResult);
+                this.listenUpdates(groupName, callback, parsedResult.timestamp)
+            }
+            else if(status === 401 || status === 403) callback(K.INVALID);
+            else if(status === 404) callback(undefined);
+            else callback(K.ERROR);
+        }, JSON.stringify(acknowledgement));
+    };
 })();
 
 K.setAddress("http://localhost:8080");
