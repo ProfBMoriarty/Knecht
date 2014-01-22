@@ -12,26 +12,33 @@ var K = {};
     //endregion
 
     //region Constants
-    K.OK = "K.OK";
-    K.ERROR = "K.ERROR";
-    K.INVALID = "K.INVALID";
+    K.responses = {
+        200: "K.OK",
+        401: "K.UNAUTH",
+        403: "K.INVALID",
+        500: "K.ERROR"
+    };
+    K.OK = K.responses[200];
+    K.UNAUTH = K.responses[401];
+    K.INVALID = K.responses[403];
+    K.ERROR = K.responses[500];
     //endregion
 
     //region Config Functions
     K.setAddress = function(address){
-        _address = address;
+        _address = encodeURI(address);
     };
 
     K.setApplication = function(app){
-        _app = app;
+        _app = encodeURIComponent(app);
     };
     //endregion
 
     //region Users functions
     K.checkUser = function(email, callback){
-        _sendRequest("HEAD", "/users?email=" + email, function(status){
-            if(status == 200) callback(true);
-            else if(status === 404) callback(false);
+        _sendRequest("HEAD", "/users?email=" + encodeURIComponent(email), function(status){
+            if(K.responses[status] === K.OK) callback(true);
+            else if(K.responses[status] === K.INVALID) callback(false);
             else callback(K.ERROR);
         });
     };
@@ -40,9 +47,7 @@ var K = {};
         _email = email;
         _password = password;
         _sendRequest("POST", "/users", function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
+            callback(K.responses[status]);
         });
     };
 
@@ -50,36 +55,26 @@ var K = {};
         _email = email;
         _password = password;
         _sendRequest("GET", "/users", function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401) callback(K.INVALID);
-            else callback(K.ERROR);
+            callback(K.responses[status]);
         });
     };
 
     K.recoverPassword = function(email, callback){
-        _sendRequest("RECOVER", "/users?email=" + email, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 404) callback(K.INVALID);
-            else callback(K.ERROR);
+        _sendRequest("GET", "/users/password?email=" + encodeURIComponent(email), function(status){
+            callback(K.responses[status]);
         });
     };
 
     K.changePassword = function(password, callback){
-        _sendRequest("PATCH", "/users", function(status){
-            if(status === 200) {
-                _password = password;
-                callback(K.OK);
-            }
-            else if(status === 401) callback(K.INVALID);
-            else callback(K.ERROR);
+        _sendRequest("PUT", "/users/password", function(status){
+            if(K.responses[status] === K.OK) _password = password;
+            callback(K.responses[status]);
         }, password);
     };
 
     K.unregister = function(callback){
         _sendRequest("DELETE", "/users", function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401) callback(K.INVALID);
-            else callback(K.ERROR);
+            callback(K.responses[status]);
         });
     };
     //endregion
@@ -87,177 +82,122 @@ var K = {};
     //region User Data functions
 
     K.putData = function(field, data, callback){
-        _sendRequest("PUT", "/users/data?app=" + _app + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401) callback(K.INVALID);
-            else callback(K.ERROR);
-        }, JSON.stringify(data));
+        _sendRequest("PUT", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
+            callback(K.responses[status]);
+        }, data);
     };
 
     K.getData = function(field, callback){
-        _sendRequest("GET", "/users/data?app=" + _app + "&field=" + field, function(status, result){
-            if(status === 200) callback(JSON.parse(result));
-            else if(status === 401) callback(K.INVALID);
-            else if(status === 404) callback(undefined);
-            else callback(K.ERROR);
+        _sendRequest("GET", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
+            if(K.responses[status] === K.OK) callback(result);
+            else callback(K.responses[status]);
         });
     };
 
     K.deleteData = function(field, callback){
-        _sendRequest("DELETE", "/users/data?app=" + _app + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401) callback(K.INVALID);
-            else callback(K.ERROR);
+        _sendRequest("DELETE", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status){
+            callback(K.responses[status]);
         });
     };
+    //endregion
+
+    //region Groups functions
+
+    //region Host functions
+    K.startGroup = function(group, grouppass, callback){
+        _sendRequest("POST", "/groups?app=" + _app + "&group=" + encodeURIComponent(group), function(status){
+            callback(K.responses[status]);
+        }, grouppass);
+    };
+
+    K.listGroups = function(callback){
+        _sendRequest("GET", "/groups?app=" + _app, function(status, result){
+            if(K.responses[status] = K.OK) callback(result);
+            else callback(K.responses[status]);
+        });
+    };
+
+    K.closeGroup = function(group, callback) {
+        _sendRequest("DELETE", "/groups?group=" + group, function(status){
+            callback(K.responses[status]);
+        });
+    };
+
+    K.addMember = function(group, email, callback) {
+        _sendRequest("POST", "/groups/members?group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(email),
+            function(status){
+                callback(K.responses[status]);
+            });
+    };
+
+    K.listMembers = function(group, callback){
+        _sendRequest("GET", "/groups/members?group=" + encodeURIComponent(group), function(status, result){
+            if(K.responses[status] = K.OK) callback(result);
+            else callback(K.responses[status]);
+        });
+    };
+
+    K.removeMember = function(group, email, callback) {
+        _sendRequest("DELETE", "/groups/members?group=" + encodeURIComponent(group) + "&user=" + encodeURIComponent(email),
+            function(status){
+                callback(K.responses[status]);
+            });
+    };
+
+    K.submitUpdate = function(group, field, data, callback){
+        _sendRequest("PUT", "/groups/data?group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status){
+            callback(K.responses[status]);
+        }, data);
+    }
+
+    K.getGroupData = function(group, field, callback){
+        _sendRequest("GET", "/groups/data?group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status, result){
+            if(K.responses[status] === K.OK) callback(result);
+            else callback(K.responses[status]);
+        });
+    }
+
+    K.grantPermission = function(group, user, field, callback){
+        _sendRequest("PUT", "/groups/data/permissions?group=" +
+            encodeURIComponent(group) + "&email=" + encodeURIComponent(user) + "&field=" + encodeURIComponent(field), function(status){
+           callback(K.responses[status]);
+        });
+    }
+
+    K.revokePermission = function(group, user, field, callback){
+        _sendRequest("DELETE", "/groups/data/permissions?group=" +
+            encodeURIComponent(group) + "&email=" + encodeURIComponent(user) + "&field=" + encodeURIComponent(field), function(status){
+            callback(K.responses[status]);
+        });
+    }
+
+    K.submitInput = function(group, data, callback){
+        _sendRequest("POST", "/groups/input?group=" + encodeURIComponent(group), function(status){
+            callback(K.responses[status]);
+        }, data);
+    }
+
+    K.listenInputs = function(group, callback){
+        _sendRequest("GET", "/groups/input?group=" + encodeURIComponent(group), function(status, data){
+            if(data) callback(data);
+            else callback(K.responses[status]);
+        });
+    }
+    //endregion
+
     //endregion
 
     function _sendRequest(method, path, callback, body){
         var request = new XMLHttpRequest();
         request.onreadystatechange = function(){
             if(request.readyState === request.DONE) {
-                callback(request.status, request.responseText);
+                if(request.responseText === '') callback(request.status);
+                else callback(request.status, JSON.parse(request.responseText));
             }
         };
         request.open(method, _address + path, true, _email, _password);
-        //request.withCredentials = true;
-        request.send(body);
+        request.withCredentials = true;
+        if(body) console.log("Body is: " + JSON.stringify(body));
+        request.send(JSON.stringify(body));
     }
-
-    //host functions
-    K.startGroup = function(groupName, groupPassword, callback){
-        _sendRequest("POST", "/groups?app=" + _app + "&name=" + groupName, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        }, groupPassword);
-    };
-
-    K.closeGroup = function(groupName, callback) {
-        _sendRequest("DELETE", "/groups?name=" + groupName, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.addMember = function(groupName, groupPassword, callback) {
-        _sendRequest("POST", "/groups/members?name=" + groupName, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.listMember = function(groupName, callback) {
-        _sendRequest("GET", "/groups/members?name=" + groupName, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.removeMember = function(groupName, callback) {
-        _sendRequest("DELETE", "/groups/members?name=" + groupName, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    //TODO: escape ampersands (those assholes will put ampersands in their names)
-    //TODO: set timeouts; listen should be a long time, others much shorter
-    K.grantPermission = function(groupName, member, field, callback) {
-        _sendRequest("POST", "/groups/permissions?name=" + groupName + "&member=" + member + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.revokePermission = function(groupName, member, field, callback) {
-        _sendRequest("DELETE", "/groups/permissions?name=" + groupName + "&member=" + member + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.submitUpdate = function(groupName, field, data, callback) {
-        _sendRequest("PUT", "/groups/data?name=" + groupName + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        }, JSON.stringify(data));
-    };
-
-    //this also a member function
-    K.getGroupData = function(groupName, field, callback) {
-        _sendRequest("GET", "/groups/data?name=" + groupName + "&field=" + field, function(status, result){
-            if(status === 200) callback(JSON.parse(result));
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else if(status === 404) callback(undefined);
-            else callback(K.ERROR);
-        });
-    };
-
-    //TODO:add graceful disconnect function
-
-    K.listenInputs = function(groupName, callback, acknowledgement) {
-        _sendRequest("GET", "/groups/inputs?name=" + groupName, function(status, result){
-            if(status === 200)
-            {
-                parsedResult = JSON.parse(result);
-                callback(parsedResult);
-                this.listenInputs(groupName, callback, parsedResult.timestamp)
-            }
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else if(status === 404) callback(undefined);
-            else callback(K.ERROR);
-        }, JSON.stringify(acknowledgement));
-    };
-
-    //member functions
-    K.submitInput = function(groupName, field, callback) {
-        _sendRequest("PUT", "/groups/inputs?name=" + groupName + "&field=" + field, function(status){
-            if(status === 200) callback(K.OK);
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else callback(K.ERROR);
-        });
-    };
-
-    K.listenUpdates = function(groupName, callback, acknowledgement) {
-        _sendRequest("GET", "/groups/updates?name=" + groupName, function(status, result){
-            if(status === 200)
-            {
-                parsedResult = JSON.parse(result);
-                callback(parsedResult);
-                this.listenUpdates(groupName, callback, parsedResult.timestamp)
-            }
-            else if(status === 401 || status === 403) callback(K.INVALID);
-            else if(status === 404) callback(undefined);
-            else callback(K.ERROR);
-        }, JSON.stringify(acknowledgement));
-    };
 })();
-
-K.setAddress("http://localhost:8080");
-K.setApplication("a");
-
-K.register('e', 'p', function(result){
-   dummyCallback(result); //done
-    K.putData('f', 'Hello World', function(result){
-        dummyCallback(result); //false
-        K.getData('f', function(result){
-            dummyCallback(result); //true
-            K.deleteData('f', function(result){
-                dummyCallback(result); //done
-                K.getData('f', dummyCallback); //done
-            });
-        });
-    });
-});
-
-function dummyCallback(result){
-    console.log(result);
-}
