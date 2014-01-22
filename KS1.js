@@ -1,11 +1,4 @@
-/**
- * Created by Patrick Feeney on 12/6/13.
- * Modified from previous version by Ben Carlson
- */
-
-//region constants
-var db_config = {
-    host: "localhost",var K = {};
+var K = {};
 port = 8080;
 
 (function(){
@@ -24,10 +17,20 @@ port = 8080;
         field: 64,
         data: 0xffffff,
         groupname: 128,
-        userlist: 0xffffff,
+        members: 0xffffff,
+        hooks: 0xffffff,
         input: 0xffffff,
-        time: 64
+        time: 64,
+        responsse: 0xffffff
     };
+
+    var time_offset = 1000;
+
+    K.OK = 200;
+    K.UNAUTH = 401;
+    K.INVALID = 403;
+    K.ERROR = 500;
+
     //endregion
 
     //region Globals
@@ -40,7 +43,7 @@ port = 8080;
 
     //region Initialization
     _connect();
-    console.log("dropping db for clean testing. Remove this in final version")
+    console.log("dropping db for clean testing. Remove this in final version");
     connection.query("DROP DATABASE IF EXISTS knecht");
     _initDatabase();
     K.server = http.createServer(_processRequest);
@@ -48,95 +51,377 @@ port = 8080;
 
     //region Users Functions
     function _checkUser(email, response){
-        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
-            if(err) _finishResponse(500, response, err.toString());
-            else if(result[0] === undefined) _finishResponse(404, response);
-            else _finishResponse(200, response);
+        connection.query("SELECT EXISTS (SELECT 1 FROM users WHERE email = ?);", [email], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else if(result === 0) _finishResponse(K.INVALID, response);
+            else _finishResponse(K.OK, response);
         });
     }
 
     function _register(email, password, response){
         connection.query("INSERT INTO users VALUES (?, ?);", [email, password], function(err){
             if(err) {
-                if(err.code == "ER_DUP_ENTRY") _finishResponse(403, response);
-                else _finishResponse(500, response, err.toString());
+                if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
+                else _finishResponse(K.ERROR, response, err.toString());
             }
-            else _finishResponse(200, response);
+            else _finishResponse(K.OK, response);
         });
     }
 
     function _login(email, password, response){
-        _checkCredentials(email, password, function(){
-            _finishResponse(200, response);
+        _checkCredentials(email, password, response, function(){
+            _finishResponse(K.OK, response);
         });
     }
 
     function _recoverPassword(email, response){
-        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
-            if(err) _finishResponse(500, response, err.toString());
-            else if(result[0] === undefined) _finishResponse(404, response);
+        connection.query("SELECT EXISTS (SELECT 1 FROM users WHERE email = ?);", [email], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else if(result === 0) _finishResponse(K.INVALID, response);
             else {
                 //TODO: send recovery email
-                _finishResponse(200, response);
+                _finishResponse(K.OK, response);
             }
         });
     }
 
     function _changePassword(email, password, new_password, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("UPDATE users SET password = ? WHERE email = ?;", [new_password, email], function(err){
-                if(err) _finishResponse(500, response, err.toString());
-                else _finishResponse(200, response);
+            connection.query("UPDATE users SET password = ? WHERE email = ? LIMIT 1;", [new_password, email], function(err){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
+                else _finishResponse(K.OK, response);
             });
         });
     }
 
     function _unregister(email, password, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("DELETE FROM users WHERE email = ?;", [email], function(err){
-                if(err) _finishResponse(500, response, err.toString());
+            connection.query("DELETE FROM users WHERE email = ? LIMIT 1;", [email], function(err){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
                 else connection.query("DELETE FROM user_data WHERE user = ?;", [email], function(err){
-                    if(err) _finishResponse(500, response, err.toString());
-                    else _finishResponse(200, response);
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else _finishResponse(K.OK, response);
                 });
             });
         });
     }
     //endregion
 
-    //regions Users/Data functions
-
+    //region Users Data functions
     function _putData(email, password, app, field, data, response){
-        console.log("putting data: " + data);
         _checkCredentials(email, password, response, function(){
-            connection.query("INSERT INTO user_data VALUES (?, ?, ?, ?)" +
-                "ON DUPLICATE KEY UPDATE data = ?;", [email, app, field, data, data], function(err){
-                if(err) _finishResponse(500, response, err.toString());
-                else _finishResponse(200, response);
-            });
+            connection.query("INSERT INTO user_data VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
+                [email, app, field, data, data], function(err){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else _finishResponse(K.OK, response);
+                });
         });
     }
 
     function _getData(email, password, app, field, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ?;", [email, app, field], function(err, result){
-                if(err) _finishResponse(500, response, err.toString());
-                else if (result[0] === undefined) _finishResponse(404, response);
-                else _finishResponse(200, response, result[0].data);
+            connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;", [email, app, field], function(err, result){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
+                else if (result.length === 0) _finishResponse(K.INVALID, response);
+                else _finishResponse(K.OK, response, result[0].data);
             });
         });
     }
 
     function _deleteData(email, password, app, field, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ?;", [email, app, field], function(err){
-                if(err) _finishResponse(500, response, err.toString());
-                else _finishResponse(200, response);
+            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;", [email, app, field], function(err){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
+                else _finishResponse(K.OK, response);
+            });
+        });
+    }
+    //endregion
+
+    //region Groups functions
+    //region Host functions
+    function _startGroup(email, password, name, app, grouppass, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("INSERT INTO groups VALUES (?, ?, ?, ?, '');",
+                [name, app, grouppass, email], function(err){
+                    if(err) {
+                        if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
+                        else _finishResponse(K.ERROR, response, err.toString());
+                    }
+                    else _finishResponse(K.OK, response);
+                });
+        });
+    }
+
+    function _closeGroup(email, password, group, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;", [group], function(err){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else connection.query("DELETE FROM inputs WHERE groupname = ?;", [group], function(err){
+                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        else connection.query("DELETE FROM updates WHERE groupname = ?;", [group], function(err){
+                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                            else connection.query("DELETE FROM inputs WHERE groupname = ?;", [group], function(err){
+                                if(err) _finishResponse(K.ERROR, response, err.toString());
+                                else connection.query("DELETE FROM group_data WHERE groupname = ?;", [group], function(err){
+                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                    else connection.query("SELECT user, hook FROM members WHERE groupname = ? AND hook != '' LIMIT 1;",
+                                        [group], function (err, result){
+                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                            else {
+                                                for(var i = 0; i < result.length; i++)
+                                                    if(result[i].hook != '') _finishResponse(K.OK, JSON.parse(result[i].hook));
+                                                connection.query("DELETE FROM members WHERE groupname = ?;", [group], function(err){
+                                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                    else _finishResponse(K.OK, response);
+                                                });
+                                            }
+                                        });
+                                });
+                            });
+                        });
+                    });
+                });
             });
         });
     }
 
-//endregion
+    function _addMember(email, password, group, member, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("INSERT INTO members VALUES (?, ?, '');", [group, member], function(err){
+                    if(err) {
+                        if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
+                        else _finishResponse(K.ERROR, response, err.toString());
+                    }
+                    else _finishResponse(K.OK, response);
+                });
+            });
+        });
+    }
+
+    function _removeMember(email, password, group, member, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                if(email === member) _closeGroup(email, password, group, response);
+                else connection.query("SELECT hook FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
+                    [group, member], function(err, result){
+                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        else if(result.length === 0) _finishResponse(K.INVALID, response);
+                        else {
+                            if(result[0].hook != '') _finishResponse(K.OK, JSON.parse(result[0].hook));
+                            connection.query("DELETE FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
+                                [group, member], function(err){
+                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                    else connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ?;",
+                                        [group, member], function(err){
+                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                            else connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;",
+                                                [group, member], function(err){
+                                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                    else connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ?;",
+                                                        [group, member], function(err){
+                                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                            else _finishResponse(K.OK, response);
+                                                        });
+                                                });
+                                        });
+                                });
+                        }
+                    });
+            });
+        });
+    }
+
+    function _submitUpdate(email, password, group, field, data, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("INSERT INTO group_data VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
+                    [group, field, data, data], function(err){
+                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        else {
+                            connection.query("SELECT user FROM permissions WHERE groupname = ? AND field = ?;",
+                                [group, field], function(err, permissions){
+                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                    else{
+                                        var values = '';
+                                        for(var i = 0; i < permissions.length; i++){
+                                            values += "("
+                                                + connection.escape(group) + ","
+                                                + connection.escape(permissions[i].user) + ","
+                                                + connection.escape(field) + ")";
+                                            if(i < permissions.length) values += ",";
+                                            else values += ";";
+                                        }
+                                        connection.query("INSERT INTO updates VALUES" + values, function(err){
+                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                            else {
+                                                for (var i = 0; i < permissions.length; i++)
+                                                    _retrieveUpdates(permissions[i].user, group);
+                                                _finishResponse(K.OK, response);
+                                            }
+                                        });
+                                    }
+                                });
+                        }
+                    });
+            });
+        });
+    }
+
+    function _listenInputs(email, password, group, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("UPDATE groups SET hook = ? WHERE name = ? LIMIT 1;",
+                    [JSON.stringify(response), group], function(err){
+                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        else _retrieveInput(group);
+                    });
+            });
+        });
+    }
+
+    function _retrieveInput(group){
+        connection.query("SELECT host, hook FROM groups WHERE name = ? LIMIT 1;", [group], function(err, host){
+            connection.query("SELECT user, input, time FROM inputs WHERE groupname = ?", [group], function(err, input){
+                if(err) _finishResponse(K.ERROR, host[0].hook, err.toString());
+                else if(input.length > 0) {
+                    var contents = [];
+                    for(var i = 0; i < input.length; i++) {
+                        contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
+                        connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ? AND input = ? AND time = ? LIMIT 1;",
+                            [group, input[i].user, input[i].input, input[i].time]);
+                    }
+                    _finishResponse(K.OK, JSON.parse(host[0].hook), contents);
+                }
+            });
+        });
+    }
+
+    function _grantPermission(email, password, group, member, field, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("INSERT INTO permissions VALUES (?, ?, ?);", [group, member, field], function(err){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else _finishResponse(K.OK);
+                });
+            });
+        });
+    }
+
+    function _revokePermission(email, password, group, member, field, response){
+        _checkCredentials(email, password, response, function(){
+            _checkHost(email, group, response, function(){
+                connection.query("DELETE FROM permissions WHERE groupname = ? AND user = ? AND field = ?;",
+                    [group, member, field], function(err){
+                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        else _finishResponse(K.OK);
+                    });
+            });
+        });
+    }
+
+    function _checkHost(email, group, response, callback){
+        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;", [group], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else if (result.length === 0) _finishResponse(K.INVALID, response);
+            else if(result[0].host !== email) _finishResponse(K.UNAUTH, response);
+            else callback();
+        });
+    }
+    //endregion
+
+    //region Member functions
+    function _submitInput(email, password, group, input, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("INSERT INTO inputs VALUES (?, ?, ?, ?);", [group, email, input, new Date().getTime()], function(err){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
+                else {
+                    _finishResponse(K.OK, response);
+                    _retrieveInput(group);
+                }
+            });
+        });
+    }
+
+    function _listenUpdates(email, password, group, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("SELECT EXISTS (SELECT 1 FROM members WHERE groupname = ? AND user = ?);",
+                [group, email], function(err, result){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else if(result === 0) _finishResponse(K.INVALID, response);
+                    else connection.query("UPDATE members SET hook = ? WHERE groupname = ? AND user = ? LIMIT 1;",
+                            [JSON.stringify(response), group, email], function(err){
+                                if(err) _finishResponse(K.ERROR, response, err.toString());
+                                else _retrieveUpdates(email, group);
+                            });
+                });
+        });
+    }
+
+    function _retrieveUpdates(email, group){
+        connection.query("SELECT hook FROM members WHERE groupname = ? AND user = ? LIMIT 1;", [group, email], function(err, member){
+            connection.query("SELECT field FROM updates WHERE groupname = ? AND user = ?", [group, email], function(err, updates){
+                if(err) _finishResponse(K.ERROR, member[0].hook, err.toString());
+                else if(updates.length > 0) {
+                    var contents = [];
+                    for(var i = 0; i < updates.length; i++) {
+                        contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
+                        connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;", [group, updates[i].user]);
+                    }
+                    _finishResponse(K.OK, JSON.parse(member[0].hook), contents);
+                }
+            });
+        });
+    }
+    //endregion
+
+    function _getGroupData(email, password, group, field, response){
+        _checkCredentials(email, password, response, function(){
+            connection.query("SELECT EXISTS (SELECT 1 FROM permissions WHERE groupname = ? AND user = ? AND field = ? LIMIT 1);",
+                [group, email, field], function(err, result){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else if(result === 0) _finishResponse(K.UNAUTH, response);
+                    else connection.query("SELECT data FROM group_data WHERE groupname = ? AND field = ? LIMIT 1;",
+                            [group, field], function(err, result){
+                                if(err) _finishResponse(K.ERROR, response, err.toString());
+                                else if(result.length === 0) _finishResponse(K.INVALID, response);
+                                else _finishResponse(K.OK, response, result[0].data);
+                            });
+                });
+        });
+    }
+
+    function _listGroups(app, response){
+        connection.query("SELECT name FROM groups WHERE app = ?;", [app], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else{
+                var group_list = [];
+                for(var i = 0; i < result.length; i++) group_list.push(result[i].name);
+                _finishResponse(K.OK, response, group_list);
+            }
+        });
+    }
+
+    function _listMembers(group, response){
+        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;", [group], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else if(result.length === 0) _finishResponse(K.INVALID, response);
+            else {
+                var members = {host: result[0].host, members: []};
+                connection.query("SELECT user FROM members WHERE groupname = ?;", [group], function(err, result){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else {
+                        for(var i = 0; i < result.length; i++) members.members.push(result[i].user);
+                        _finishResponse(K.OK, response, members);
+                    }
+                });
+            }
+        });
+    }
+
+    //endregion
 
     function _connect(){ //recommended disconnect handling method from https://github.com/felix/node-mysql/blob/master/Readme.md
         connection = mysql.createConnection(db_config);
@@ -172,9 +457,10 @@ port = 8080;
         });
         connection.query("CREATE TABLE IF NOT EXISTS groups(" +
             "name VARCHAR (" + db_field_size.groupname + ")," +
-            "password VARCHAR (" + db_field_size.password + ")," +
             "app VARCHAR (" + db_field_size.app + ")," +
-            "users TEXT (" + db_field_size.userlist + ")," +
+            "password VARCHAR (" + db_field_size.password + ")," +
+            "host VARCHAR (" + db_field_size.email + ")," +
+            "hook TEXT (" + db_field_size.response + ")," +
             "PRIMARY KEY (name));", function(err){
             if(err) throw err;
         });
@@ -182,7 +468,7 @@ port = 8080;
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
             "input TEXT (" + db_field_size.input + ")," +
-            "time TEXT (" + db_field_size.time + "));",
+            "time VARCHAR (" + db_field_size.time + "));",
             function(err){
                 if(err) throw err;
             });
@@ -207,6 +493,13 @@ port = 8080;
             "PRIMARY KEY (groupname, field));", function(err){
             if(err) throw err;
         });
+        connection.query("CREATE TABLE IF NOT EXISTS members(" +
+            "groupname VARCHAR (" + db_field_size.groupname + ")," +
+            "user VARCHAR (" + db_field_size.email + ")," +
+            "hook TEXT (" + db_field_size.response + ")," +
+            "PRIMARY KEY (groupname, user));", function(err){
+            if(err) throw err;
+        });
     }
 
     function _processRequest(request, response){
@@ -223,22 +516,45 @@ port = 8080;
                 case "/users":
                     switch(request.method){
                         case "HEAD":
-                            _checkUser(parsed_url.query.email, response);
+                            _checkUser(
+                                parsed_url.query.email,
+                                response);
                             break;
                         case "POST":
-                            _register(credentials[0], credentials[1],response);
+                            _register(
+                                credentials[0],
+                                credentials[1],
+                                response);
                             break;
                         case "GET":
-                            _login(credentials[0], credentials[1],response);
-                            break;
-                        case "RECOVER":
-                            _recoverPassword(parsed_url.query.email, response);
-                            break;
-                        case "PATCH":
-                            _changePassword(credentials[0], credentials[1], data, response);
+                            _login(
+                                credentials[0],
+                                credentials[1],
+                                response);
                             break;
                         case "DELETE":
-                            _unregister(credentials[0], credentials[1], response);
+                            _unregister(
+                                credentials[0],
+                                credentials[1],
+                                response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "/users/password":
+                    switch(request.method){
+                        case "GET":
+                            _recoverPassword(
+                                parsed_url.query.email,
+                                response);
+                            break;
+                        case "PUT":
+                            _changePassword(
+                                credentials[0],
+                                credentials[1],
+                                data,
+                                response);
                             break;
                         default:
                             _finishResponse(501, response);
@@ -247,18 +563,173 @@ port = 8080;
                 case "/users/data":
                     switch(request.method){
                         case "PUT":
-                            _putData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, data, response);
+                            _putData(
+                                credentials[0],
+                                credentials[1],
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                data,
+                                response);
                             break;
                         case "GET":
-                            _getData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, response);
+                            _getData(
+                                credentials[0],
+                                credentials[1],
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                response);
                             break;
                         case "DELETE":
-                            _deleteData(credentials[0], credentials[1], parsed_url.query.app, parsed_url.query.field, response);
+                            _deleteData(
+                                credentials[0],
+                                credentials[1],
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                response);
                             break;
                         default:
                             _finishResponse(501, response);
                     }
                     break;
+                case "/groups":
+                    switch(request.method){
+                        case "POST":
+                            _startGroup(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.app),
+                                data,
+                                response);
+                            break;
+                        case "GET":
+                            _listGroups(
+                                decodeURIComponent(parsed_url.query.app),
+                                response);
+                            break;
+                        case "DELETE":
+                            _closeGroup(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "/groups/members":
+                    switch(request.method){
+                        case "POST":
+                            _addMember(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.email),
+                                response);
+                            break;
+                        case "GET":
+                            _listMembers(
+                                decodeURIComponent(parsed_url.query.group),
+                                response);
+                            break;
+                        case "DELETE":
+                            _removeMember(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.email),
+                                response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "groups/data":
+                    switch(request.method){
+                        case "POST":
+                            _submitUpdate(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.field),
+                                data,
+                                response
+                            );
+                            break;
+                        case "GET":
+                            _getGroupData(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.field),
+                                response
+                            );
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "groups/data/permissions":
+                    switch(request.method){
+                        case "PUT":
+                            _grantPermission(
+                                credentials[0],
+                                credentials[1],
+                                parsed_url.query.group,
+                                parsed_url.query.email,
+                                parsed_url.query.field,
+                                response
+                            );
+                            break;
+                        case "DELETE":
+                            _revokePermission(
+                                credentials[0],
+                                credentials[1],
+                                parsed_url.query.group,
+                                parsed_url.query.email,
+                                parsed_url.query.field,
+                                response
+                            );
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "groups/input":
+                    switch(request.method){
+                        case "POST":
+                            _submitInput(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                data,
+                                response
+                            );
+                            break;
+                        case "GET":
+                            _listenInput(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                response
+                            );
+                            break;
+                        default:
+                            _finishResponse(501, response);
+                    }
+                    break;
+                case "groups/updates":
+                    switch(request.method){
+                        case "GET":
+                            _listenUpdates(
+                                credentials[0],
+                                credentials[1],
+                                decodeURIComponent(parsed_url.query.group),
+                                response
+                            );
+                            break;
+                    }
                 default:
                     _finishResponse(400, response);
             }
@@ -266,416 +737,18 @@ port = 8080;
     }
 
     function _checkCredentials(email, password, response, callback){
-        connection.query("SELECT 1 FROM users WHERE email = ? AND password = ?;", [email, password], function(err, result){
-            if (err) _finishResponse(500, response, err.toString());
-            else if (result[0] === undefined) _finishResponse(401, response);
+        connection.query("SELECT password FROM users WHERE email = ?;", [email], function(err, result){
+            if(err) _finishResponse(K.ERROR, response, err.toString());
+            else if(result.length === 0) _finishResponse(K.INVALID, response);
+            else if(result[0].password !== password) _finishResponse(K.UNAUTH, response);
             else callback();
         });
     }
 
     function _finishResponse(status, response, body){
         response.writeHead(status);
-        response.end(body);
+        response.end(JSON.stringify(body));
     }
 })();
 
 K.server.listen(port);
-    user: "root",
-    password:"root"
-};
-
-var reconnect_delay = 2000;
-
-var username_length = 100;
-var password_length = 100;
-var email_length = 100;
-var appname_length = 100;
-var fieldname_length = 100;
-var data_length = 100;
-var matchname_length = 100;
-var authed_length = 100;
-
-var matchhost_field = "~knecht_match_host";
-var matchpass_field = "~knecht_match_pass";
-var matchusers_field = "~knecht_match_users";
-//endregion
-
-//region node.js modules
-var http = require("http");
-var mysql = require("mysql");
-var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;
-//endregion
-
-//region globals
-var connection;
-var request_queues = new Array(new Array());
-//endregion
-
-//region main
-
-//region initialize database
-connect();
-connection.query("CREATE DATABASE IF NOT EXISTS knecht;", function(err){
-    if(err) throw err;
-});
-connection.query("USE knecht", function(err){
-    if(err) throw err;
-});
-
-//region drop the tables to make sure the test code is working fresh. delete later
-connection.query("DROP TABLE users", function(){});
-connection.query("DROP TABLE data", function(){});
-connection.query("DROP TABLE shared", function(){});
-//endregion
-
-connection.query("CREATE TABLE IF NOT EXISTS users(" +
-    "username VARCHAR(" + username_length + ")," +
-    "password VARCHAR(" + password_length + ")," +
-    "email VARCHAR("    + email_length    + ")," +
-    "UNIQUE (username)," +
-    "PRIMARY KEY (email));", function(err){
-    if(err) throw err;
-});
-connection.query("CREATE TABLE IF NOT EXISTS data(" +
-    "username VARCHAR(" + username_length + ")," +
-    "appname VARCHAR("  + appname_length  + ")," +
-    "fieldname VARCHAR("      + fieldname_length      + ")," +
-    "data VARBINARY("     + data_length     + ")," +
-    "PRIMARY KEY (username, appname, fieldname));", function(err){
-    if(err) throw err;
-});
-
-connection.query("CREATE TABLE IF NOT EXISTS shared(" +
-    "matchname VARCHAR(" + matchname_length + ")," +
-    "authed VARBINARY("  + authed_length  + ")," +
-    "fieldname VARCHAR("      + fieldname_length      + ")," +
-    "data VARBINARY("     + data_length     + ")," +
-    "PRIMARY KEY (matchname, fieldname));", function(err){
-    if(err) throw err;
-});
-//endregion
-
-http.createServer(function(request, response){
-    if(request.method === "POST"){
-        console.log("post request received");
-        var data = "";
-        request.on("data", function(chunk){
-            data += chunk;
-        });
-        request.on("end", function(){
-            var obj = JSON.parse(data);
-            console.log(obj);
-            processPost(obj, response);
-        });
-    }
-    else{
-        finishResponse(403, "text/plain", "Just what are you trying to pull here?", response);
-    }
-}).listen(1337, "127.0.0.1");
-
-function processPost(obj, response){
-    switch(obj.functionname){
-        case "checkCredentials":
-            checkCredentials(obj.username, obj.password, response);
-            break;
-        case "handshake":
-            finishResponse(200, "application/json", JSON.stringify({"result": "success"}), response);
-            break;
-        case "register":
-            register(obj.username, obj.password, obj.email, response);
-            break;
-        case "unregister":
-            unregister(obj.username, obj.password, response);
-            break;
-        case "recoverFromUsername":
-            recoverFromUsername(obj.username, response);
-            break;
-        case "recoverFromEmail":
-            recoverFromEmail(obj.email, response);
-            break;
-        case "postData":
-            postData(obj.username, obj.password, obj.appname, obj.fieldname, obj.data, response);
-            break;
-        case "getData":
-            getData(obj.username, obj.password, obj.appname, obj.fieldname, response);
-            break;
-        case "deleteData":
-            deleteData(obj.username, obj.password, obj.appname, obj.fieldname, response);
-            break;
-        /*case "createMatch":
-            createMatch(obj.username, obj.password, obj.matchname, obj.matchpass, response);
-            break;
-        case "joinMatch":
-            joinMatch(obj.username, obj.password, obj.matchname, obj.matchpass, response);
-            break;
-        case "submitInput":
-            submitInput(obj.username, obj.password, obj.matchname, obj.inputname, obj.inputdata, response);
-            break;
-        case "subscribeUpdate":
-            subscribeUpdate(obj.username, obj.password, obj.matchname, response);
-            break;*/ //unimplemented multiplayer functions
-        default:
-            finishResponse(400, "text/plain", "Not on the menu, chief", response);
-            break;
-    }
-}
-
-function finishResponse(code, content_type, body, response){
-    response.writeHead(code, {"Content-Type": content_type});
-    response.end(body);
-}
-
-function respondError(err, response){
-    finishResponse(404, "application/json",
-        JSON.stringify({"result": "failure", "reason": err.toString()}), response);
-    throw err;
-}
-
-//endregion
-
-//region single-user functions
-function checkCredentials(username, password, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?;", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined){
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else {
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: credentials check out");
-        }
-    });
-}
-function register(username, password, email, response){
-    connection.query("INSERT INTO users VALUES (?, ?, ?);", [username, password, email], function(err){
-        if(err) {
-            if(err.code == "ER_DUP_ENTRY"){
-                finishResponse(403, "application/json",
-                    JSON.stringify({"result": "failure", "reason": "username or email already in use"}), response);
-                console.log("Error: username or email already in use");
-            }
-            else {
-                respondError(err, response);
-            }
-        }
-        else {
-            console.log("sending register response");
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: user created");
-        }
-    });
-}
-
-function unregister(username, password, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?;", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined){
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else {
-            connection.query("DELETE FROM users WHERE username = ?;", [username], function(err){
-                if(err) respondError(err, response);
-            });
-            connection.query("DELETE FROM data WHERE username = ?;", [username], function(err){
-                if(err) respondError(err, response);
-            });
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: user data deleted");
-        }
-    });
-}
-
-function recoverFromUsername(username,response){
-    connection.query("SELECT password, email FROM users WHERE username = ?;", [username], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined){
-            finishResponse(404, "application/json",
-                JSON.stringify({"result": "failure", "reason": "user not found"}), response);
-            console.log("Error: user not found");
-        }
-        else {
-            //TODO: send password recovery email
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: recovery email sent");
-        }
-    });
-}
-
-function recoverFromEmail(email, response){
-    connection.query("SELECT password FROM users WHERE email = ?;", [email], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(404, "application/json",
-                JSON.stringify({"result": "failure", "reason": "user not found"}), response);
-            console.log("Error: user not found");
-        }
-        else {
-            //TODO: send password recovery email
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: recovery email sent");
-        }
-    });
-}
-
-function postData(username, password, appname, fieldname, data, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else connection.query("INSERT INTO data VALUES (?, ?, ?, ?)" +
-            "ON DUPLICATE KEY UPDATE data = ?", [username, appname, fieldname, data, data], function(err){
-            if(err) respondError(err, response);
-            finishResponse(200, "application/json",
-                JSON.stringify({"result": "success"}), response);
-            console.log("Success: data posted");
-        });
-    });
-}
-
-function getData(username, password, appname, fieldname, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else connection.query("SELECT data FROM data WHERE username = ? AND appname = ? AND fieldname = ?;",
-            [username, appname, fieldname], function(err, result){
-                if(err) respondError(err, response);
-                if(result[0] === undefined) {
-                    finishResponse(404, "application/json",
-                        JSON.stringify({"result": "failure", "reason": "data not found"}), response);
-                    console.log("Error: no data");
-                }
-                else {
-                    finishResponse(200, "application/json",
-                        JSON.stringify({"result": "success", "data": result[0]}), response);
-                    console.log("data is " + result[0].data.toString());
-                }
-            });
-    });
-}
-
-function deleteData(username, password, appname, fieldname, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else connection.query("DELETE FROM data WHERE username = ? AND appname = ? AND fieldname = ?;",
-            [username, appname, fieldname], function(err, result){
-                if(err) respondError(err, response);
-                if(result[0] === undefined) {
-                    finishResponse(404, "application/json",
-                        JSON.stringify({"result": "failure", "reason": "data not found"}), response);
-                    console.log("Error: no data");
-                }
-                else {
-                    finishResponse(200, "application/json",
-                        JSON.stringify({"result": "success"}), response);
-                    console.log("Success: data deleted");
-                }
-            });
-    });
-}
-//endregion
-
-//region shared-data functions
-
-function createMatch(username, password, matchname, matchpass, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else connection.query("SELECT 1 FROM shared WHERE matchname = ?;", [matchname], function(){
-            if(err) respondError(err, response);
-            if(result[0] !== undefined) {
-                finishResponse(403, "application/json",
-                    JSON.stringify({"result": "failure", "reason": "matchname in use"}), response);
-                console.log("Error: invalid credentials");
-            }
-            else {
-                connection.query("INSERT INTO shared VALUES (?, ?, ?, ?)", [matchname, [username], matchhost_field, username], function(err){
-                    if(err) respondError(err, response);
-                });
-                connection.query("INSERT INTO shared VALUES (?, ?, ?, ?)", [matchname, [username], matchpass_field, matchpass], function(err){
-                    if(err) respondError(err, response);
-                });
-                connection.query("INSERT INTO shared VALUES (?, ?, ?, ?)", [matchname, [username], matchusers_field, [username]], function(err){
-                    if(err) respondError(err, response);
-                });
-                finishResponse(200, "application/json",
-                    JSON.stringify({"result": "success"}, response));
-                console.log("Success: match created");
-            }
-        });
-    })
-}
-
-function joinMatch(username, password, matchname, matchpass, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else connection.query("SELECT 1 FROM shared WHERE matchname = ? AND fieldname = ? AND data = ?",
-            [matchname, matchpass_field, matchpass], function(err, result){
-            if(err) respondError(err, response);
-            if(result[0] === undefined) {
-                finishResponse(403, "application/json",
-                    JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-                console.log("Error: invalid credentials");
-            }
-            else ; //TODO: implement this
-        });
-    });
-}
-
-function submitInput(username, password, matchname, input_type, input_data, response){
-    connection.query("SELECT 1 FROM users WHERE username = ? AND password = ?", [username, password], function(err, result){
-        if(err) respondError(err, response);
-        if(result[0] === undefined) {
-            finishResponse(403, "application/json",
-                JSON.stringify({"result": "failure", "reason": "invalid credentials"}), response);
-            console.log("Error: invalid credentials");
-        }
-        else ; //TODO: implement this
-    });
-}
-
-//endregion
-
-function connect(){ //recommended disconnect handling method from https://github.com/felix/node-mysql/blob/master/Readme.md
-    connection = mysql.createConnection(db_config);
-    connection.connect(function(err){
-        if(err) {
-            console.log("Error connecting to database: ", err);
-            setTimeout(connect, reconnect_delay);
-        }
-    });
-    connection.on("error", function(err){
-        console.log("database error: ", err);
-        if(err.code === "PROTOCOL_CONNECTION_LOST") connect();
-        else throw err;
-    });
-}
