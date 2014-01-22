@@ -17,14 +17,11 @@ port = 8080;
         field: 64,
         data: 0xffffff,
         groupname: 128,
-        members: 0xffffff,
         hooks: 0xffffff,
         input: 0xffffff,
         time: 64,
-        responsse: 0xffffff
+        response: 0xffffff
     };
-
-    var time_offset = 1000;
 
     K.OK = 200;
     K.UNAUTH = 401;
@@ -39,6 +36,7 @@ port = 8080;
     var http = require("http");
 
     var connection;
+    var hooks = {};
     //endregion
 
     //region Initialization
@@ -61,13 +59,12 @@ port = 8080;
     function _register(email, password, response){
         connection.query("INSERT INTO users VALUES (?, ?);", [email, password], function(err){
             if(err) {
-                if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
+               if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
                 else _finishResponse(K.ERROR, response, err.toString());
             }
             else _finishResponse(K.OK, response);
         });
     }
-
     function _login(email, password, response){
         _checkCredentials(email, password, response, function(){
             _finishResponse(K.OK, response);
@@ -94,7 +91,7 @@ port = 8080;
         });
     }
 
-    function _unregister(email, password, response){
+    function _unregister(email, password, response){ //TODO: clear user from groups
         _checkCredentials(email, password, response, function(){
             connection.query("DELETE FROM users WHERE email = ? LIMIT 1;", [email], function(err){
                 if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -142,13 +139,16 @@ port = 8080;
     //region Host functions
     function _startGroup(email, password, name, app, grouppass, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("INSERT INTO groups VALUES (?, ?, ?, ?, '');",
+            connection.query("INSERT INTO groups VALUES (?, ?, ?, ?);",
                 [name, app, grouppass, email], function(err){
                     if(err) {
                         if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
                         else _finishResponse(K.ERROR, response, err.toString());
                     }
-                    else _finishResponse(K.OK, response);
+                    else {
+                        hooks[name] = {};
+                        _finishResponse(K.OK, response);
+                    }
                 });
         });
     }
@@ -156,27 +156,26 @@ port = 8080;
     function _closeGroup(email, password, group, response){
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
+                for(var i = 0; i < result.length; i++)
+                    if(hooks[group][result[i].user]) _finishResponse(K.OK, hooks[group][result[i].user]);
+                delete hooks[group];
                 connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;", [group], function(err){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
                     else connection.query("DELETE FROM inputs WHERE groupname = ?;", [group], function(err){
                         if(err) _finishResponse(K.ERROR, response, err.toString());
                         else connection.query("DELETE FROM updates WHERE groupname = ?;", [group], function(err){
                             if(err) _finishResponse(K.ERROR, response, err.toString());
-                            else connection.query("DELETE FROM inputs WHERE groupname = ?;", [group], function(err){
+                            else connection.query("DELETE FROM permissions WHERE groupname = ?;", [group], function(err){
                                 if(err) _finishResponse(K.ERROR, response, err.toString());
                                 else connection.query("DELETE FROM group_data WHERE groupname = ?;", [group], function(err){
                                     if(err) _finishResponse(K.ERROR, response, err.toString());
-                                    else connection.query("SELECT user, hook FROM members WHERE groupname = ? AND hook != '' LIMIT 1;",
+                                    else connection.query("SELECT user FROM members WHERE groupname = ? LIMIT 1;",
                                         [group], function (err, result){
                                             if(err) _finishResponse(K.ERROR, response, err.toString());
-                                            else {
-                                                for(var i = 0; i < result.length; i++)
-                                                    if(result[i].hook != '') _finishResponse(K.OK, JSON.parse(result[i].hook));
-                                                connection.query("DELETE FROM members WHERE groupname = ?;", [group], function(err){
-                                                    if(err) _finishResponse(K.ERROR, response, err.toString());
-                                                    else _finishResponse(K.OK, response);
-                                                });
-                                            }
+                                            else connection.query("DELETE FROM members WHERE groupname = ?;", [group], function(err){
+                                                if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                else _finishResponse(K.OK, response);
+                                            });
                                         });
                                 });
                             });
@@ -190,7 +189,7 @@ port = 8080;
     function _addMember(email, password, group, member, response){
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
-                connection.query("INSERT INTO members VALUES (?, ?, '');", [group, member], function(err){
+                connection.query("INSERT INTO members VALUES (?, ?);", [group, member], function(err){
                     if(err) {
                         if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
                         else _finishResponse(K.ERROR, response, err.toString());
@@ -205,12 +204,12 @@ port = 8080;
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
                 if(email === member) _closeGroup(email, password, group, response);
-                else connection.query("SELECT hook FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
+                else connection.query("SELECT 1 FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
                     [group, member], function(err, result){
                         if(err) _finishResponse(K.ERROR, response, err.toString());
                         else if(result.length === 0) _finishResponse(K.INVALID, response);
                         else {
-                            if(result[0].hook != '') _finishResponse(K.OK, JSON.parse(result[0].hook));
+                            if(hooks[group][member]) _finishResponse(K.OK, hooks[group][member]);
                             connection.query("DELETE FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
                                 [group, member], function(err){
                                     if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -234,7 +233,7 @@ port = 8080;
         });
     }
 
-    function _submitUpdate(email, password, group, field, data, response){
+    function _submitUpdate(email, password, group, field, data, response){ //TODO: optionally set permissions
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
                 connection.query("INSERT INTO group_data VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
@@ -251,15 +250,15 @@ port = 8080;
                                                 + connection.escape(group) + ","
                                                 + connection.escape(permissions[i].user) + ","
                                                 + connection.escape(field) + ")";
-                                            if(i < permissions.length) values += ",";
+                                            if(i < permissions.length -1) values += ",";
                                             else values += ";";
                                         }
                                         connection.query("INSERT INTO updates VALUES" + values, function(err){
                                             if(err) _finishResponse(K.ERROR, response, err.toString());
                                             else {
+                                                _finishResponse(K.OK, response);
                                                 for (var i = 0; i < permissions.length; i++)
                                                     _retrieveUpdates(permissions[i].user, group);
-                                                _finishResponse(K.OK, response);
                                             }
                                         });
                                     }
@@ -273,19 +272,16 @@ port = 8080;
     function _listenInputs(email, password, group, response){
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
-                connection.query("UPDATE groups SET hook = ? WHERE name = ? LIMIT 1;",
-                    [JSON.stringify(response), group], function(err){
-                        if(err) _finishResponse(K.ERROR, response, err.toString());
-                        else _retrieveInput(group);
-                    });
+                hooks[group][email] = response;
+                _retrieveInput(group);
             });
         });
     }
 
     function _retrieveInput(group){
-        connection.query("SELECT host, hook FROM groups WHERE name = ? LIMIT 1;", [group], function(err, host){
+        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;", [group], function(err, host){
             connection.query("SELECT user, input, time FROM inputs WHERE groupname = ?", [group], function(err, input){
-                if(err) _finishResponse(K.ERROR, host[0].hook, err.toString());
+                if(err) _finishResponse(K.ERROR, hooks[group][host[0].host], err.toString());
                 else if(input.length > 0) {
                     var contents = [];
                     for(var i = 0; i < input.length; i++) {
@@ -293,7 +289,7 @@ port = 8080;
                         connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ? AND input = ? AND time = ? LIMIT 1;",
                             [group, input[i].user, input[i].input, input[i].time]);
                     }
-                    _finishResponse(K.OK, JSON.parse(host[0].hook), contents);
+                    _finishResponse(K.OK, hooks[group][host[0].host], contents);
                 }
             });
         });
@@ -351,33 +347,30 @@ port = 8080;
                 [group, email], function(err, result){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
                     else if(result === 0) _finishResponse(K.INVALID, response);
-                    else connection.query("UPDATE members SET hook = ? WHERE groupname = ? AND user = ? LIMIT 1;",
-                            [JSON.stringify(response), group, email], function(err){
-                                if(err) _finishResponse(K.ERROR, response, err.toString());
-                                else _retrieveUpdates(email, group);
-                            });
+                    else {
+                        hooks[group][email] = response;
+                        _retrieveUpdates(email, group);
+                    }
                 });
         });
     }
 
     function _retrieveUpdates(email, group){
-        connection.query("SELECT hook FROM members WHERE groupname = ? AND user = ? LIMIT 1;", [group, email], function(err, member){
-            connection.query("SELECT field FROM updates WHERE groupname = ? AND user = ?", [group, email], function(err, updates){
-                if(err) _finishResponse(K.ERROR, member[0].hook, err.toString());
-                else if(updates.length > 0) {
-                    var contents = [];
-                    for(var i = 0; i < updates.length; i++) {
-                        contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
-                        connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;", [group, updates[i].user]);
-                    }
-                    _finishResponse(K.OK, JSON.parse(member[0].hook), contents);
+        connection.query("SELECT field FROM updates WHERE groupname = ? AND user = ?", [group, email], function(err, updates){
+            if(err) _finishResponse(K.ERROR, hooks[group][email], err.toString());
+            else if(updates.length > 0) {
+                var contents = [];
+                for(var i = 0; i < updates.length; i++) {
+                    contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
+                    connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;", [group, updates[i].user]);
                 }
-            });
+                _finishResponse(K.OK, hooks[group][email], contents);
+            }
         });
     }
     //endregion
 
-    function _getGroupData(email, password, group, field, response){
+    function _getGroupData(email, password, group, field, response){ //TODO: let host read it
         _checkCredentials(email, password, response, function(){
             connection.query("SELECT EXISTS (SELECT 1 FROM permissions WHERE groupname = ? AND user = ? AND field = ? LIMIT 1);",
                 [group, email, field], function(err, result){
@@ -409,12 +402,12 @@ port = 8080;
             if(err) _finishResponse(K.ERROR, response, err.toString());
             else if(result.length === 0) _finishResponse(K.INVALID, response);
             else {
-                var members = {host: result[0].host, members: []};
+                var content = {host: result[0].host, members: []};
                 connection.query("SELECT user FROM members WHERE groupname = ?;", [group], function(err, result){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
                     else {
-                        for(var i = 0; i < result.length; i++) members.members.push(result[i].user);
-                        _finishResponse(K.OK, response, members);
+                        for(var i = 0; i < result.length; i++) content.members.push(result[i].user);
+                        _finishResponse(K.OK, response, content);
                     }
                 });
             }
@@ -460,7 +453,6 @@ port = 8080;
             "app VARCHAR (" + db_field_size.app + ")," +
             "password VARCHAR (" + db_field_size.password + ")," +
             "host VARCHAR (" + db_field_size.email + ")," +
-            "hook TEXT (" + db_field_size.response + ")," +
             "PRIMARY KEY (name));", function(err){
             if(err) throw err;
         });
@@ -496,7 +488,6 @@ port = 8080;
         connection.query("CREATE TABLE IF NOT EXISTS members(" +
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
-            "hook TEXT (" + db_field_size.response + ")," +
             "PRIMARY KEY (groupname, user));", function(err){
             if(err) throw err;
         });
@@ -645,7 +636,7 @@ port = 8080;
                             _finishResponse(501, response);
                     }
                     break;
-                case "groups/data":
+                case "/groups/data":
                     switch(request.method){
                         case "POST":
                             _submitUpdate(
@@ -670,7 +661,7 @@ port = 8080;
                             _finishResponse(501, response);
                     }
                     break;
-                case "groups/data/permissions":
+                case "/groups/data/permissions":
                     switch(request.method){
                         case "PUT":
                             _grantPermission(
@@ -696,7 +687,7 @@ port = 8080;
                             _finishResponse(501, response);
                     }
                     break;
-                case "groups/input":
+                case "/groups/input":
                     switch(request.method){
                         case "POST":
                             _submitInput(
@@ -708,7 +699,7 @@ port = 8080;
                             );
                             break;
                         case "GET":
-                            _listenInput(
+                            _listenInputs(
                                 credentials[0],
                                 credentials[1],
                                 decodeURIComponent(parsed_url.query.group),
@@ -719,7 +710,7 @@ port = 8080;
                             _finishResponse(501, response);
                     }
                     break;
-                case "groups/updates":
+                case "/groups/updates":
                     switch(request.method){
                         case "GET":
                             _listenUpdates(
@@ -752,3 +743,6 @@ port = 8080;
 })();
 
 K.server.listen(port);
+
+//TODO: list groups member is in
+//TODO: safer update/input clearing
