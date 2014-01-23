@@ -49,7 +49,7 @@ port = 8080;
 
     //region Users Functions
     function _checkUser(email, response){
-        connection.query("SELECT EXISTS (SELECT 1 FROM users WHERE email = ?);", [email], function(err, result){
+        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
             if(err) _finishResponse(K.ERROR, response, err.toString());
             else if(result === 0) _finishResponse(K.INVALID, response);
             else _finishResponse(K.OK, response);
@@ -72,7 +72,7 @@ port = 8080;
     }
 
     function _recoverPassword(email, response){
-        connection.query("SELECT EXISTS (SELECT 1 FROM users WHERE email = ?);", [email], function(err, result){
+        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
             if(err) _finishResponse(K.ERROR, response, err.toString());
             else if(result === 0) _finishResponse(K.INVALID, response);
             else {
@@ -91,13 +91,21 @@ port = 8080;
         });
     }
 
-    function _unregister(email, password, response){ //TODO: clear user from groups
+    function _unregister(email, password, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("DELETE FROM users WHERE email = ? LIMIT 1;", [email], function(err){
+            connection.query("SELECT name FROM groups WHERE host = ?;", [email], function(err, result){
                 if(err) _finishResponse(K.ERROR, response, err.toString());
-                else connection.query("DELETE FROM user_data WHERE user = ?;", [email], function(err){
+                else connection.query("DELETE FROM users WHERE email = ? LIMIT 1;", [email], function(err){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
-                    else _finishResponse(K.OK, response);
+                    else {
+                        _finishResponse(K.OK, response);
+                        for(var i; i < result.length; i++) {
+                            for(var member in hooks[result[i].name])
+                                if (hooks[result[i].name].hasOwnProperty(member))
+                                    _finishResponse(K.OK, hooks[result[i].name][member]);
+                            delete hooks[result[i].name];
+                        }
+                    }
                 });
             });
         });
@@ -127,10 +135,11 @@ port = 8080;
 
     function _deleteData(email, password, app, field, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;", [email, app, field], function(err){
-                if(err) _finishResponse(K.ERROR, response, err.toString());
-                else _finishResponse(K.OK, response);
-            });
+            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;",
+                [email, app, field], function(err){
+                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    else _finishResponse(K.OK, response);
+                });
         });
     }
     //endregion
@@ -156,31 +165,15 @@ port = 8080;
     function _closeGroup(email, password, group, response){
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
-                for(var i = 0; i < result.length; i++)
-                    if(hooks[group][result[i].user]) _finishResponse(K.OK, hooks[group][result[i].user]);
-                delete hooks[group];
                 connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;", [group], function(err){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
-                    else connection.query("DELETE FROM inputs WHERE groupname = ?;", [group], function(err){
-                        if(err) _finishResponse(K.ERROR, response, err.toString());
-                        else connection.query("DELETE FROM updates WHERE groupname = ?;", [group], function(err){
-                            if(err) _finishResponse(K.ERROR, response, err.toString());
-                            else connection.query("DELETE FROM permissions WHERE groupname = ?;", [group], function(err){
-                                if(err) _finishResponse(K.ERROR, response, err.toString());
-                                else connection.query("DELETE FROM group_data WHERE groupname = ?;", [group], function(err){
-                                    if(err) _finishResponse(K.ERROR, response, err.toString());
-                                    else connection.query("SELECT user FROM members WHERE groupname = ? LIMIT 1;",
-                                        [group], function (err, result){
-                                            if(err) _finishResponse(K.ERROR, response, err.toString());
-                                            else connection.query("DELETE FROM members WHERE groupname = ?;", [group], function(err){
-                                                if(err) _finishResponse(K.ERROR, response, err.toString());
-                                                else _finishResponse(K.OK, response);
-                                            });
-                                        });
-                                });
-                            });
-                        });
-                    });
+                    else {
+                        _finishResponse(K.OK, response);
+                        for(var member in hooks[group])
+                            if (hooks[group].hasOwnProperty(member))
+                                _finishResponse(K.OK, hooks[group][member]);
+                        delete hooks[group];
+                    }
                 });
             });
         });
@@ -236,8 +229,8 @@ port = 8080;
     function _submitUpdate(email, password, group, field, data, response){ //TODO: optionally set permissions
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
-                connection.query("INSERT INTO group_data VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
-                    [group, field, data, data], function(err){
+                connection.query("INSERT INTO group_data VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
+                    [group, field, data, new Date().getTime(), data], function(err){
                         if(err) _finishResponse(K.ERROR, response, err.toString());
                         else {
                             connection.query("SELECT user FROM permissions WHERE groupname = ? AND field = ?;",
@@ -253,14 +246,15 @@ port = 8080;
                                             if(i < permissions.length -1) values += ",";
                                             else values += ";";
                                         }
-                                        connection.query("INSERT INTO updates VALUES" + values, function(err){
+                                        if(values !== '') connection.query("INSERT INTO updates VALUES" + values, function(err){
                                             if(err) _finishResponse(K.ERROR, response, err.toString());
                                             else {
                                                 _finishResponse(K.OK, response);
                                                 for (var i = 0; i < permissions.length; i++)
-                                                    _retrieveUpdates(permissions[i].user, group);
+                                                    _retrieveUpdates(permissions[i].user, group, 0);
                                             }
                                         });
+                                        else _finishResponse(K.OK, response);
                                     }
                                 });
                         }
@@ -269,16 +263,16 @@ port = 8080;
         });
     }
 
-    function _listenInputs(email, password, group, response){
+    function _listenInputs(email, password, group, timestamp, response){
         _checkCredentials(email, password, response, function(){
             _checkHost(email, group, response, function(){
                 hooks[group][email] = response;
-                _retrieveInput(group);
+                _retrieveInput(group, timestamp);
             });
         });
     }
 
-    function _retrieveInput(group){
+    function _retrieveInput(group, timestamp){
         connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;", [group], function(err, host){
             connection.query("SELECT user, input, time FROM inputs WHERE groupname = ?", [group], function(err, input){
                 if(err) _finishResponse(K.ERROR, hooks[group][host[0].host], err.toString());
@@ -286,8 +280,8 @@ port = 8080;
                     var contents = [];
                     for(var i = 0; i < input.length; i++) {
                         contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
-                        connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ? AND input = ? AND time = ? LIMIT 1;",
-                            [group, input[i].user, input[i].input, input[i].time]);
+                        connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ? AND input = ? AND time < ? LIMIT 1;",
+                            [group, input[i].user, input[i].input, timestamp]);
                     }
                     _finishResponse(K.OK, hooks[group][host[0].host], contents);
                 }
@@ -335,34 +329,34 @@ port = 8080;
                 if(err) _finishResponse(K.ERROR, response, err.toString());
                 else {
                     _finishResponse(K.OK, response);
-                    _retrieveInput(group);
+                    _retrieveInput(group, 0);
                 }
             });
         });
     }
 
-    function _listenUpdates(email, password, group, response){
+    function _listenUpdates(email, password, group, timestamp, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("SELECT EXISTS (SELECT 1 FROM members WHERE groupname = ? AND user = ?);",
+            connection.query("SELECT 1 FROM members WHERE groupname = ? AND user = ?;",
                 [group, email], function(err, result){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
-                    else if(result === 0) _finishResponse(K.INVALID, response);
+                    else if(result.length === 0) _finishResponse(K.INVALID, response);
                     else {
                         hooks[group][email] = response;
-                        _retrieveUpdates(email, group);
+                        _retrieveUpdates(email, group, timestamp);
                     }
                 });
         });
     }
 
-    function _retrieveUpdates(email, group){
+    function _retrieveUpdates(email, group, timestamp){
         connection.query("SELECT field FROM updates WHERE groupname = ? AND user = ?", [group, email], function(err, updates){
             if(err) _finishResponse(K.ERROR, hooks[group][email], err.toString());
             else if(updates.length > 0) {
                 var contents = [];
                 for(var i = 0; i < updates.length; i++) {
-                    contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
-                    connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;", [group, updates[i].user]);
+                    contents.push(updates[i].field);
+                    connection.query("DELETE FROM updates WHERE groupname = ? AND user = ? AND time < ?;", [group, updates[i].user, timestamp]);
                 }
                 _finishResponse(K.OK, hooks[group][email], contents);
             }
@@ -370,12 +364,15 @@ port = 8080;
     }
     //endregion
 
-    function _getGroupData(email, password, group, field, response){ //TODO: let host read it
+    function _getGroupData(email, password, group, field, response){
         _checkCredentials(email, password, response, function(){
-            connection.query("SELECT EXISTS (SELECT 1 FROM permissions WHERE groupname = ? AND user = ? AND field = ? LIMIT 1);",
-                [group, email, field], function(err, result){
+            var permitted = false;
+            connection.query("(SELECT 1 FROM permissions WHERE groupname = ? AND user = ? AND field = ? LIMIT 1) UNION" +
+                "(SELECT 1 FROM groups WHERE name = ? AND host = ?);",
+                [group, email, field, group, email], function(err, result){
+                    console.log(result);
                     if(err) _finishResponse(K.ERROR, response, err.toString());
-                    else if(result === 0) _finishResponse(K.UNAUTH, response);
+                    else if(result.length === 0) _finishResponse(K.UNAUTH, response);
                     else connection.query("SELECT data FROM group_data WHERE groupname = ? AND field = ? LIMIT 1;",
                             [group, field], function(err, result){
                                 if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -437,30 +434,38 @@ port = 8080;
         connection.query("CREATE TABLE IF NOT EXISTS users(" +
             "email VARCHAR (" + db_field_size.email + ")," +
             "password VARCHAR (" + db_field_size.password + ")," +
-            "PRIMARY KEY (email));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (email));",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS user_data(" +
             "user VARCHAR (" + db_field_size.email + ")," +
             "app VARCHAR (" + db_field_size.app + ")," +
             "field VARCHAR (" + db_field_size.field + ")," +
             "data TEXT (" + db_field_size.data + ")," +
-            "PRIMARY KEY (user, app, field));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (user, app, field)," +
+            "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS groups(" +
             "name VARCHAR (" + db_field_size.groupname + ")," +
             "app VARCHAR (" + db_field_size.app + ")," +
             "password VARCHAR (" + db_field_size.password + ")," +
             "host VARCHAR (" + db_field_size.email + ")," +
-            "PRIMARY KEY (name));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (name)," +
+            "FOREIGN KEY (host) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS inputs(" +
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
             "input TEXT (" + db_field_size.input + ")," +
-            "time VARCHAR (" + db_field_size.time + "));",
+            "time VARCHAR (" + db_field_size.time + ")," +
+            "PRIMARY KEY (groupname, user, time)," +
+            "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE," +
+            "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
             function(err){
                 if(err) throw err;
             });
@@ -468,29 +473,41 @@ port = 8080;
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
             "field VARCHAR (" + db_field_size.field + ")," +
-            "PRIMARY KEY (groupname, user, field));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (groupname, user, field)," +
+            "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE," +
+            "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS updates(" +
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
             "field VARCHAR (" + db_field_size.field + ")," +
-            "PRIMARY KEY (groupname, user, field));", function(err){
-            if(err) throw err;
-        });
+            "time VARCHAR (" + db_field_size.time + ")," +
+            "PRIMARY KEY (groupname, user, field)," +
+            "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE," +
+            "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS group_data(" +
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "field VARCHAR (" + db_field_size.field + ")," +
             "data TEXT (" + db_field_size.data + ")," +
-            "PRIMARY KEY (groupname, field));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (groupname, field)," +
+            "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
         connection.query("CREATE TABLE IF NOT EXISTS members(" +
             "groupname VARCHAR (" + db_field_size.groupname + ")," +
             "user VARCHAR (" + db_field_size.email + ")," +
-            "PRIMARY KEY (groupname, user));", function(err){
-            if(err) throw err;
-        });
+            "PRIMARY KEY (groupname, user)," +
+            "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE," +
+            "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
+            function(err){
+                if(err) throw err;
+            });
     }
 
     function _processRequest(request, response){
@@ -638,7 +655,7 @@ port = 8080;
                     break;
                 case "/groups/data":
                     switch(request.method){
-                        case "POST":
+                        case "PUT":
                             _submitUpdate(
                                 credentials[0],
                                 credentials[1],
@@ -703,6 +720,7 @@ port = 8080;
                                 credentials[0],
                                 credentials[1],
                                 decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.time),
                                 response
                             );
                             break;
@@ -717,6 +735,7 @@ port = 8080;
                                 credentials[0],
                                 credentials[1],
                                 decodeURIComponent(parsed_url.query.group),
+                                decodeURIComponent(parsed_url.query.time),
                                 response
                             );
                             break;
@@ -745,4 +764,3 @@ port = 8080;
 K.server.listen(port);
 
 //TODO: list groups member is in
-//TODO: safer update/input clearing
