@@ -242,7 +242,8 @@ port = 8080;
                                             values += "("
                                                 + connection.escape(group) + ","
                                                 + connection.escape(permissions[i].user) + ","
-                                                + connection.escape(field) + ")";
+                                                + connection.escape(field) + ","
+                                                + new Date().getTime() + ")";
                                             if(i < permissions.length -1) values += ",";
                                             else values += ";";
                                         }
@@ -463,7 +464,6 @@ port = 8080;
             "user VARCHAR (" + db_field_size.email + ")," +
             "input TEXT (" + db_field_size.input + ")," +
             "time VARCHAR (" + db_field_size.time + ")," +
-            "PRIMARY KEY (groupname, user, time)," +
             "FOREIGN KEY (user) REFERENCES users (email) ON DELETE CASCADE ON UPDATE CASCADE," +
             "FOREIGN KEY (groupname) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE CASCADE);",
             function(err){
