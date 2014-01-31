@@ -1,0 +1,812 @@
+
+<!DOCTYPE HTML>
+<html lang="en">
+	<head>
+		<title>Perlenspiel | API | Saving &amp; Loading</title>
+		<meta charset="utf-8"/>
+		<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1"/>
+		<meta name="description" content="Perlenspiel | API | Placeholder"/>
+		<meta name="keywords" content="perlenspiel, game, design, engine, gameclavier, moriarty, wpi"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<meta name="apple-mobile-web-app-capable" content="yes"/>
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+		<link rel="shortcut icon" href="http://users.wpi.edu/~bmoriarty/ps/favicon.png"/>
+		<link rel="apple-touch-icon" href="http://users.wpi.edu/~bmoriarty/ps/apple-touch-icon.png"/>
+		<link href='http://fonts.googleapis.com/css?family=Roboto:400,700,400italic,700italic,100' rel='stylesheet' type='text/css'>
+		<link rel="stylesheet" href="style.css" type="text/css">
+		<script type="text/javascript" src="play.js"></script>
+	</head>
+	<body onload="PSA.dots();">
+		<div id="header">
+			<p><img src="images/logosm.png" alt="[Logo]"><strong>Knecht<sup class="sup3">3</sup></strong></p>
+
+			<ul id="nav">
+				<li><a href="index.html">Home</a></li>
+				<li><a href="download.html">Download</a></li>
+				<li><a href="learning.html">Learning</a></li>
+				<li><a href="examples.html">Examples</a></li>
+				<li><a href="api.html">API</a></li>
+				<li><a href="links.html">Links</a></li>
+			</ul>
+		</div>
+
+		<div id="main">
+		<p class="subhead">API | Config</p>
+
+		<p>These commands set constants specific to the application so that they do not have to be passed with every request.</p>
+
+		<ul class="select">
+			<li><a href="#setserver">setAddress</a> ( address )</li>
+            <li><a href="#setapp">setApplication</a> ( app )</li>
+		</ul>
+
+        <div class="section">
+            <div id="setserver" class="dot">&nbsp;</div>
+            <p class="subhead">setAddress( address )</p>
+
+            <p>setAddress() specifies the URL or IP address of the server to message and establishes a connection.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>address</b> : <em>string</em></li>
+                </ol>
+            </div>
+
+            <p>The required <b>address</b> parameter must be the address of the server.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. setAddress() is required for any function that accesses the server.  If it is not called first, those functions will fail.
+            <p>2. Note that this function does not verify the address given, so if it is invalid an error will not appear until another function tries to access it.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>setAddress() returns nothing.</p>
+        </div>
+
+        <div class="section">
+            <div id="setapp" class="dot">&nbsp;</div>
+            <p class="subhead">setApplication( app )</p>
+
+            <p>setApplication() specifies the name of the application in the name of which queries will be made.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>app</b> : <em>string</em></li>
+                </ol>
+            </div>
+
+            <p>The required <b>app</b> parameter must be unique to the application</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. setApplication() is required for any function that handles data on the server.  If it is not called first, those functions will fail.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>setAddress() returns nothing.</p>
+        </div>
+
+        <p class="subhead">API | User Accounts</p>
+
+        <p>These commands manage user accounts.</p>
+
+        <ul class="select">
+            <li><a href="#checkemail">checkEmail</a> ( email, callback )</li>
+            <li><a href="#register">register</a> ( email, password, callback )</li>
+            <li><a href="#login">login</a> ( email, password, callback )</li>
+            <li><a href="#recoveremail">recoverPassword</a> ( email, callback )</li>
+            <li><a href="#changepw">changePassword</a> ( password, callback )</li>
+            <li><a href="#unregister">unregister</a> ( callback )</li>
+            <li><a href="#logout">logout</a> ( callback )</li> <!-- implement this -->
+        </ul>
+
+        <div class="section">
+            <div id="checkemail" class="dot">&nbsp;</div>
+            <p class="subhead">checkEmail( email, callback )</p>
+
+            <p>checkEmail() checks whether the given email is already the name of an existing account.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+            </div>
+
+            <p>The required <b>email</b> parameter should correspond to an existing email address.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the given email is not yet in use.</p>
+            <p>response is K.INVALID if the given email is in use.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>checkEmail() returns nothing.</p>
+        </div>
+
+        <div class="section">
+            <div id="register" class="dot">&nbsp;</div>
+            <p class="subhead">register( email, password, callback )</p>
+
+            <p>register() establishes a new account on the server.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>password</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>email</b> parameter must be valid email address unique from all other email address in the system.</p>
+            <p>The required <b>password</b> parameter is a string that will be used to authorize users to use this account in the future.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the account was successfully created.</p>
+            <p>response is K.INVALID if the account could not be created because the given email was in use.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>register() returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="login" class="dot">&nbsp;</div>
+            <p class="subhead">login ( email, password, callback )</p>
+
+            <p>login() creates a session on the server and stores a key (handled by the client) so that account specifically requests can be made.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>password</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The <b>email</b> parameter indicate the username given to the server,
+                and the <b>password</b> parameter indicate the password given to the server.
+                Both strings are required.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the client is now logged in to the specified account.</p>
+            <p>response is K.UNAUTH if the given password is not correct.</p>
+            <p>response is K.INVALID if the given email is not an existing account.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p>login() returns nothing.  Upon completion of the ajax request, callback is called</p>
+            <p></p>
+        </div>
+
+        <div class="section">
+            <div id="recoveremail" class="dot">&nbsp;</div>
+            <p class="subhead">recoverPassword( email, callback )</p>
+
+            <p>recoverPassword() sends an email with the account password to the email address specified at account creation.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>email</b> parameter must correspond to an existing account.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the email was successfully sent.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>recoverPassword() returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="changepw" class="dot">&nbsp;</div>
+            <p class="subhead">changePassword( password, callback )</p>
+
+            <p>changePassword() change the password of the account currently logged into.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>password</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>password</b> parameter will be used to access the account in the future.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the email was successfully sent.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>changePassword() returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="unregister" class="dot">&nbsp;</div>
+            <p class="subhead">unregister( callback )</p>
+
+            <p>unregister() deletes the current account from the server and all associated data.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the account was successfully deleted.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. This action can not be undone.  Do not call it lightly.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>unregister returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="logout" class="dot">&nbsp;</div>
+            <p class="subhead">logout ( image )</p>
+
+            <p>logout() expires the session.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The <b>callback</b> parameter is called with a string that is the server's response upon completion.</p>
+
+            <p><strong>Usage notes</strong></p>
+
+            <p>1. The format of the response is an object.  It has a "result" field that is either the string "success" or the string "failure"
+                If the value of result is "failure", then the object has a "reason" field that is a string.  Possible values of the reason field include:</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>logout() returns nothing</p>
+        </div>
+
+        <p class="subhead">API | User Data</p>
+
+        <p>These commands control the creation, management and retrieval of data as used by a single application.</p>
+
+        <ul class="select">
+            <li><a href="#postdata">putData</a> ( field, data, callback )</li>
+            <li><a href="#getdata">getData</a> ( field, callback )</li>
+            <li><a href="#deletedata">deleteData</a> ( field, callback )</li>
+        </ul>
+
+		<div class="section">
+			<div id="postdata" class="dot">&nbsp;</div>
+			<p class="subhead">putData( field, data, callback )</p>
+
+			<p>putData() saves arbitrary data to the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>field</b> : <em>string</em></li>
+					<li><b>data</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>field</b> can be anything that does not already identify a body of data for this user and game, but the game will have to reproduce it to retrieve the data.</p>
+			<p>The required <b>data</b> can be anything that the game can itself parse.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully posted.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>postData returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+		<div class="section">
+			<div id="getdata" class="dot">&nbsp;</div>
+			<p class="subhead">getData( field, callback )</p>
+
+			<p>getData() retrieves data to the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>field</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>field</b> is a unique string used to identify the data.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is the retrieved data if it could be retrieved.</p>
+			
+			<p class="subitem">Return value</p>
+
+			<p>getData returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+		
+		<div class="section">
+			<div id="deletedata" class="dot">&nbsp;</div>
+			<p class="subhead">deleteData( field, callback )</p>
+
+			<p>deleteData() deletes the specified data from the server.</p>
+
+			<div class="specs">
+				<p>Parameters:</p>
+				<ol>
+					<li><b>field</b> : <em>string</em></li>
+					<li><b>callback</b> : <em>function</em></li>
+				</ol>
+				<p>Returns: nothing</p>
+			</div>
+
+			<p>The required <b>field</b> is the same name used as when the data is posted.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully deleted.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+			<p class="subitem">Usage notes</p>
+
+			<p>1. If data with that key doesn't exist, nothing happens.</p>
+
+			<p class="subitem">Return value</p>
+
+			<p>deleteData returns nothing, but the callback function is called asynchronously when it completes.</p>
+		</div>
+
+        <p class="subhead">API | Group Host</p>
+
+        <p>These commands control the creation, management and retrieval of groups for managing data that can be access by multiple clients simultaneously.  They can only be called by the group host.</p>
+
+        <ul class="select">
+            <li><a href="#startgroup">startGroup</a> ( group, grouppass, callback )</li>
+            <li><a href="#closegroup">closeGroup</a> ( group, callback )</li>
+            <li><a href="#addmember">addMember</a> ( group, email, callback )</li>
+            <li><a href="#listmembers">listMembers</a> ( group, callback )</li>
+            <li><a href="#removemember">removeMember</a> ( group, email, callback )</li>
+            <li><a href="#submitupdate">submitUpdate</a> ( group field, data, callback )</li>
+            <li><a href="#getgroupdata">getGroupData</a> ( group, field, callback )</li>
+            <li><a href="#grantpermission">grantPermission</a> ( group, user, field, callback )</li>
+            <li><a href="#revokepermission">revokePermission</a> ( group, user, field, callback )</li>
+            <li><a href="#listeninputs">listenInputs</a> ( group, callback )</li>
+        </ul>
+
+        <div class="section">
+            <div id="startgroup" class="dot">&nbsp;</div>
+            <p class="subhead">startGroup( group, grouppass, callback )</p>
+
+            <p>startGroup() creates a new group with the calling account as the host.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>grouppass</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the same name that will be used to identify the new group.</p>
+            <p>The required <b>grouppass</b> is the group password.  It is never referenced again.</p> <!-- remove this unused parameter -->
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the group was successfully created.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name already exists.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. The new host must still call listenInputs to receive inputs from both accepted and perspective members of the group.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>startGroup returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="closegroup" class="dot">&nbsp;</div>
+            <p class="subhead">closeGroup( group, callback )</p>
+
+            <p>closeGroup() deletes an existing group and all data associated with it.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group to be deleted.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the group was successfully deleted.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. This function cannot be undone.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>deleteGroup returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="addmember" class="dot">&nbsp;</div>
+            <p class="subhead">addMember( group, email, callback )</p>
+
+            <p>addMember() adds a new member to a group that is an existing account, usually one who has requested membership with input.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group to which the new member is to be added.</p>
+            <p>The required <b>email</b> is the name of the account to be made a member of the group.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the member was successfully added.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. The new member must still call listenUpdates to receive updates from the host.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>addMember returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="listmembers" class="dot">&nbsp;</div>
+            <p class="subhead">listMembers( group, callback )</p>
+
+            <p>listMembers() retrieves a list of members of the group.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group the members of which are to be retrieved.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the list was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is an array of strings that are the emails of the members of the group if they could be retrieved.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>listMembers returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="removemember" class="dot">&nbsp;</div>
+            <p class="subhead">removeMember( group, email, callback )</p>
+
+            <p>listMembers() retrieves a list of members of the group.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>email</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group the members of which are to be retrieved.</p>
+            <p>The required <b>email</b> is the email of the member to be removed from the group.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the member was successfully removed.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>listMembers returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="submitupdate" class="dot">&nbsp;</div>
+            <p class="subhead">submitUpdate( group, field, data, callback )</p>
+
+            <p>submitUpdate() places an object on the server and alerts all members so they can access it if necessary.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>field</b> : <em>string</em></li>
+                    <li><b>data</b> : <em>object</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group the update is to be sent to.</p>
+            <p>The required <b>field</b> is the name of the data to be posted on the server in the group's name.</p>
+            <p>The required <b>data</b> is an object in a format that the members will be able to interpret.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the update was successfully posted.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>submitUpdate returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="getgroupdata" class="dot">&nbsp;</div>
+            <p class="subhead">getGroupData( group, field, callback )</p>
+
+            <p>getGroupData() retrieves an object on the server previously posted by the submitUpdate function.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>field</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group the data is to be retrieved from.</p>
+            <p>The required <b>field</b> is the name of the data used when it was posted.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is the requested data if it could be retrieved.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. Any member of the group, not only the host, can call this function.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>getGroupData returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <!-- put the grant permission and revoke permission APIs here once those functions are reworked -->
+
+        <div class="section">
+            <div id="listeninputs" class="dot">&nbsp;</div>
+            <p class="subhead">listenInputs( group, callback )</p>
+
+            <p>listenInputs() returns a list of inputs from members both accepted and perspective.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group to which inputs are to be listened for.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is an array of objects corresponding to pending inputs.</p>
+            <p>The objects of body each have a member<b>user</b> that is a <em>string</em> that is the email of the account that submitted the input.</p>
+            <p>The objects of body each have a member<b>input</b> that is an <em>object</em> representing the member's input.</p>
+            <p>The objects of body each have a member<b>time</b> that is a <em>number</em> representing the time the response was sent in unix time.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. The callback maybe called multiple times as new input is received because this function refreshes itself.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>getGroupData returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <p class="subhead">API | Group Member</p>
+
+        <p>These commands all members of groups to interact with the host and each other indirectly.</p>
+
+        <ul class="select">
+            <li><a href="#listgroups">listGroups</a> ( callback )</li>
+            <li><a href="#submitinput">submitInput</a> ( group, data, callback )</li>
+            <li><a href="#listenupdates">listenUpdates</a> ( group, callback )</li>
+        </ul>
+
+        <div class="section">
+            <div id="listgroups" class="dot">&nbsp;</div>
+            <p class="subhead">listGroups( callback )</p>
+
+            <p>listGroups() returns a list of all active groups with the same declared application as the current application.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group to whose host the input is to be sent.</p>
+            <p>The required <b>data</b> is an object in a format the host will understand containing a message.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is an array of strings that are the names of active groups.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>getGroupData returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="submitinput" class="dot">&nbsp;</div>
+            <p class="subhead">submitInput( group, data, callback )</p>
+
+            <p>submitInput() sends an object encoded message to the host of a group.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>data</b> : <em>object</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>getGroupData returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+        <div class="section">
+            <div id="listenupdates" class="dot">&nbsp;</div>
+            <p class="subhead">listenUpdates( group, callback )</p>
+
+            <p>listenInputs() returns a list of fields of group data that has been updated by the host.</p>
+
+            <div class="specs">
+                <p>Parameters:</p>
+                <ol>
+                    <li><b>group</b> : <em>string</em></li>
+                    <li><b>callback</b> : <em>function</em></li>
+                </ol>
+                <p>Returns: nothing</p>
+            </div>
+
+            <p>The required <b>group</b> is the name of the group to which inputs are to be listened for.</p>
+            <p>The required <b>callback</b> parameter must take an object.</p>
+            <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
+            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>response is K.OK if the data was successfully retrieved.</p>
+            <p>response is K.UNAUTH if the account could not be authorized.</p>
+            <p>response is K.INVALID if the account does not exist or a group with the given name does not exist.</p>
+            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>body</b> that is an array of strings that are the names of fields that have been updated.</p>
+
+            <p class="subitem">Usage notes</p>
+
+            <p>1. The callback maybe called multiple times as new updates are received because this function refreshes itself.</p>
+
+            <p class="subitem">Return value</p>
+
+            <p>getGroupData returns nothing, but the callback function is called asynchronously when it completes.</p>
+        </div>
+
+		<div id="footer">
+			<p>Interactive Media and Game Development<br/>
+				Worcester Polytechnic Institute<br/>
+				100 Institute Road, Worcester, MA 01609 USA<br/>
+				<a href="http://imgd.wpi.edu">imgd.wpi.edu</a><br/>&nbsp;</p>
+		</div>
+        </div>
+	</body>
+</html>
