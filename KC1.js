@@ -7,9 +7,10 @@ var K = {};
     //continuously pass them into the functions.
     var _address = null;  //the address of the server
     var _app = null;  //the name of the application; all versions of a client that want to talk to each other should use
-                      //the exact same name
+    //the exact same name
     var _email = null;  //the user's email address serving as the name of his account.
     var _password = null;  //the user's password, used to validate the account
+    var _session_id = null; //the authenticaton token from the most recent login
 
     var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;  //require the browser to load AJAX so requests can be made
     //endregion
@@ -18,11 +19,11 @@ var K = {};
     //standard response codes
     K.responses = {
         200: "K.OK", //this indicates that the request was successful; if it was a get request it will be accompanied by
-                     //the requested value
+        //the requested value
         401: "K.UNAUTH", //this indicates that the request could not be carried out, either because the correct password
-                         //was not used or the user does not have permission to make the request
+        //was not used or the user does not have permission to make the request
         403: "K.INVALID", //this indicates that the parameters of the request are invalid, perhaps because a field that
-                          //must be unique is already in use or a field to be retrieved does not exist
+        //must be unique is already in use or a field to be retrieved does not exist
         500: "K.ERROR" //this indicates that an unknown error has occurred, perhaps because of connection failure
 
     };
@@ -59,10 +60,11 @@ var K = {};
     //if an error is encountered, K.ERROR is passed to callback instead
     //this function returns nothing
     K.checkUser = function(email, callback){
-        _sendRequest("HEAD", "/users?email=" + encodeURIComponent(email), function(status){
-            if(K.responses[status] === K.OK) callback(true);
-            else if(K.responses[status] === K.INVALID) callback(false);
-            else callback(K.ERROR);
+        _sendRequest("GET", "/users?email=" + encodeURIComponent(email), function(status, result){
+            if(K.responses[status] === K.OK) result['result'] = true;
+            else if(K.responses[status] === K.INVALID) result['result'] = false;
+            else result['result'] = K.ERROR;
+            callback(result);
         });
     };
 
@@ -73,12 +75,15 @@ var K = {};
     //the callback function must take one parameter that is the response code from the server as defined in the
     //Constants section
     //this function returns nothing
-    K.register = function(email, password, callback){
-        _email = email;
+    K.register = function(email, password, callback, timeout){
+        _email = encodeURIComponent(email);
         _password = password;
-        _sendRequest("POST", "/users", function(status){
-            callback(K.responses[status]);
-        });
+        if(!timeout) timeout = 15;
+        _sendRequest("POST", "/users?email=" + _email + "&timeout=" + encodeURIComponent(timeout),
+            function(status, result){
+                if(K.responses[status] === K.OK) _session_id = encodeURIComponent(result.body);
+                callback({timestamp: result.timestamp, result: K.responses[status]});
+            }, _password);
     };
 
     //this function logs into an existing account with the given username and password
@@ -91,11 +96,13 @@ var K = {};
     //note that the server does not track which users are logged in; rather this function merely stores the given
     //username and password for future calls and verifies that they are a valid pair
     K.login = function(email, password, callback){
-        _email = email;
+        _session_id = null; //TODO: logout function
+        _email = encodeURIComponent(email);
         _password = password;
-        _sendRequest("GET", "/users", function(status){
-            callback(K.responses[status]);
-        });
+        _sendRequest("PUT", "/users?email=" + _email, function(status, result){
+            if(K.responses[status] === K.OK) _session_id = encodeURIComponent(result.body);
+            callback({timestamp: result.timestamp, result: K.responses[status]});
+        }, _password);
     };
 
     //this function sends a password recovery email to the specified address
@@ -119,9 +126,9 @@ var K = {};
     //Constants section
     //this function returns nothing
     K.changePassword = function(password, callback){
-        _sendRequest("PUT", "/users/password", function(status){
+        _sendRequest("PUT", "/users/password?session_id=" + _session_id, function(status, result){
             if(K.responses[status] === K.OK) _password = password;
-            callback(K.responses[status]);
+            callback({timestamp: result.timestamp, result: K.responses[status]});
         }, password);
     };
 
@@ -133,8 +140,12 @@ var K = {};
     //this function returns nothing
     //note: this function can not be undo; take care not to call it lightly
     K.unregister = function(callback){
-        _sendRequest("DELETE", "/users", function(status){
-            callback(K.responses[status]);
+        _sendRequest("DELETE", "/users?session_id=" + _session_id, function(status, result){
+            if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                if(result.result === K.OK) K.unregister(callback);
+                else callback({timestamp: result.timestamp, result: K.UNAUTH});
+            });
+            else callback({timestamp: result.timestamp, result: K.responses[status]});
         });
     };
     //endregion
@@ -152,8 +163,13 @@ var K = {};
     //this function returns nothing
     //note that if an object is already stored under the name of the given field, it is overwritten
     K.putData = function(field, data, callback){
-        _sendRequest("PUT", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
-            callback(K.responses[status]);
+        _sendRequest("PUT", "/users/data?session_id=" + _session_id +
+            "&app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
+            if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                if(result.result === K.OK) K.putData(field, data, callback);
+                else callback({timestamp: result.timestamp, result: K.UNAUTH});
+            });
+            else callback({timestamp: result.timestamp, result: K.responses[status]});
         }, data);
     };
 
@@ -165,9 +181,14 @@ var K = {};
     //Constants section if the stored object could not be retrieved
     //this function returns nothing
     K.getData = function(field, callback){
-        _sendRequest("GET", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
-            if(K.responses[status] === K.OK) callback(result);
-            else callback(K.responses[status]);
+        _sendRequest("GET", "/users/data?session_id=" + _session_id +
+            "&app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
+            if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                if(result.result === K.OK) K.getData(field, callback);
+                else callback({timestamp: result.timestamp, result: K.UNAUTH});
+            });
+            else if(K.responses[status] === K.OK) callback({timestamp: result.timestamp, result: result.body});
+            else callback({timestamp: result.timestamp, result: K.responses[status]});
         });
     };
 
@@ -178,8 +199,13 @@ var K = {};
     //Constants section
     //this function returns nothing
     K.deleteData = function(field, callback){
-        _sendRequest("DELETE", "/users/data?app=" + _app + "&field=" + encodeURIComponent(field), function(status){
-            callback(K.responses[status]);
+        _sendRequest("DELETE", "/users/data?session_id=" + _session_id +
+            "&app=" + _app + "&field=" + encodeURIComponent(field), function(status, result){
+            if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                if(result.result === K.OK) K.deleteData(field, callback);
+                else callback({timestamp: result.timestamp, result: K.UNAUTH});
+            });
+            else callback({timestamp: result.timestamp, result: K.responses[status]});
         });
     };
     //endregion
@@ -317,7 +343,7 @@ var K = {};
     K.grantPermission = function(group, user, field, callback){
         _sendRequest("PUT", "/groups/data/permissions?group=" +
             encodeURIComponent(group) + "&email=" + encodeURIComponent(user) + "&field=" + encodeURIComponent(field), function(status){
-           callback(K.responses[status]);
+            callback(K.responses[status]);
         });
     }
 
@@ -438,16 +464,22 @@ var K = {};
     function _sendRequest(method, path, callback, body){
         var request = new XMLHttpRequest();
         request.onreadystatechange = function(){
-            if(request.readyState === request.DONE) {
-                if(request.responseText === '') callback(request.status);
-                else callback(request.status, JSON.parse(request.responseText));
-                console.log(request.responseText);
-            }
+            if(request.readyState === request.DONE) callback(request.status, JSON.parse(request.responseText));
         };
-        request.open(method, _address + path, true, _email, _password);
-        request.withCredentials = true;
+        request.open(method, _address + path, true);
         request.send(JSON.stringify(body));
     }
 
     //endregion
 })();
+
+var u1 = 'u1';
+var u2 = 'u2';
+var p1 = 'p1';
+var p2 = 'p2';
+var f1 = 'f1';
+var d1 = 'd1';
+
+K.setAddress("http://localhost:8080");
+K.setApplication("a");
+
