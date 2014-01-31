@@ -11,16 +11,15 @@ port = 8080;
     };
 
     var db_field_size = {
-        email: 252,
+        email: 255,
         password: 32,
         app: 64,
         field: 64,
         data: 0xffffff,
         groupname: 128,
-        hooks: 0xffffff,
         input: 0xffffff,
         time: 64,
-        response: 0xffffff
+        session_id: 320
     };
 
     K.OK = 200;
@@ -48,32 +47,83 @@ port = 8080;
     //endregion
 
     //region Users Functions
+
+    /**
+     * Checks if the given email is registered on this server
+     * @param email
+     * @param response
+     * @responds K.ERROR if there is an error with the query
+     * @responds K.INVALID if email is not registered
+     * @responds K.OK if email is registered
+     */
     function _checkUser(email, response){
-        connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
-            if(err) _finishResponse(K.ERROR, response, err.toString());
-            else if(result === 0) _finishResponse(K.INVALID, response);
+        connection.query("SELECT 1 FROM users WHERE email = ? LIMIT 1;", [email], function(err, result){
+            if(err) _finishResponse(K.ERROR, response);
+            else if(result.length === 0) _finishResponse(K.INVALID, response);
             else _finishResponse(K.OK, response);
         });
     }
 
-    function _register(email, password, response){
-        connection.query("INSERT INTO users VALUES (?, ?);", [email, password], function(err){
+    /**
+     * Registers a new user on the server
+     * @param email
+     * @param password
+     * @param timeout the length of time a session token for this account will remain valid, in minutes
+     * @param response
+     * @responds K.ERROR if there is an error with the query
+     * @responds K.INVALID if the email is already registered
+     * @responds K.OK if successful, providing session id in body
+     */
+    function _register(email, password, timeout, response){
+        var session_id = _generateSessionID(email);
+        connection.query("INSERT INTO users VALUES (?, ?, ?, ?, ?);",
+            [email, password, timeout, session_id, _getTime()], function(err){
             if(err) {
-               if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
-                else _finishResponse(K.ERROR, response, err.toString());
+                if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
+                else _finishResponse(K.ERROR, response);
             }
-            else _finishResponse(K.OK, response);
-        });
-    }
-    function _login(email, password, response){
-        _checkCredentials(email, password, response, function(){
-            _finishResponse(K.OK, response);
+            else _finishResponse(K.OK, response, session_id);
         });
     }
 
+    /**
+     * Logs a user into the server, generating a new session id and invalidating the previous one
+     * @param email
+     * @param password
+     * @param response
+     * @responds K.ERROR if there is an error with a query
+     * @responds K.INVALID if the email is not registered
+     * @responds K.UNAUTH if the password does not match the email
+     * @responds K.OK if successful, providing session id in body
+     */
+    function _login(email, password, response){
+        connection.query("SELECT password FROM users WHERE email = ? LIMIT 1;", [email], function(err, result){
+            if(err) _finishResponse(K.ERROR, response);
+            else if(result.length === 0) _finishResponse(K.INVALID, response);
+            else if(result[0].password !== password) _finishResponse(K.UNAUTH, response);
+            else {
+                var session_id = _generateSessionID(email);
+                connection.query("UPDATE users SET session_id = ?, lastping = ? WHERE email = ? LIMIT 1;",
+                    [session_id, _getTime(), email], function(err){
+                    if(err) _finishResponse(K.ERROR, response);
+                    else _finishResponse(K.OK, response, session_id);
+                });
+            }
+
+        });
+    }
+
+    /**
+     * Sends an email containing a registered user's password to the registered email
+     * @param email
+     * @param response
+     * @responds K.ERROR if there is an error with the query
+     * @responds K.INVALID if the email is not registered
+     * @responds K.OK if successful. No guarantee that the email has actually been recieved, only sent
+     */
     function _recoverPassword(email, response){
         connection.query("SELECT 1 FROM users WHERE email = ?;", [email], function(err, result){
-            if(err) _finishResponse(K.ERROR, response, err.toString());
+            if(err) _finishResponse(K.ERROR, response);
             else if(result === 0) _finishResponse(K.INVALID, response);
             else {
                 //TODO: send recovery email
@@ -82,21 +132,40 @@ port = 8080;
         });
     }
 
-    function _changePassword(email, password, new_password, response){
-        _checkCredentials(email, password, response, function(){
-            connection.query("UPDATE users SET password = ? WHERE email = ? LIMIT 1;", [new_password, email], function(err){
-                if(err) _finishResponse(K.ERROR, response, err.toString());
+    /**
+     * Updates the password of a registered account
+     * @param session
+     * @param password the new password for this account
+     * @param response
+     * @responds K.ERROR if there is an error with the query
+     * @responds K.INVALID if the session id does not exist in the database
+     * @responds K.UNAUTH if the session id is expired
+     * @respond K.OK if successful
+     */
+    function _changePassword(session_id, password, response){
+        _checkCredentials(session_id, response, function(email){
+            connection.query("UPDATE users SET password = ? WHERE email = ? LIMIT 1;", [password, email], function(err){
+                if(err) _finishResponse(K.ERROR, response);
                 else _finishResponse(K.OK, response);
             });
         });
     }
 
-    function _unregister(email, password, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Removes a user and all their data from the server
+     * @param session
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id does not exist in the database
+     * @responds K.UNAUTH if the session id is expired
+     * @responds K.OK if successful
+     */
+    function _unregister(session_id, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("SELECT name FROM groups WHERE host = ?;", [email], function(err, result){
-                if(err) _finishResponse(K.ERROR, response, err.toString());
+                if(err) _finishResponse(K.ERROR, response);
                 else connection.query("DELETE FROM users WHERE email = ? LIMIT 1;", [email], function(err){
-                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    if(err) _finishResponse(K.ERROR, response);
                     else {
                         _finishResponse(K.OK, response);
                         for(var i; i < result.length; i++) {
@@ -110,34 +179,79 @@ port = 8080;
             });
         });
     }
+
+    /**
+     * Generates a unique key corresponding to a registered account, to be used as credentials for other functions
+     * @param email
+     * @returns concatenation of the email and a random number between 0 and 1
+     */
+    function _generateSessionID(email){
+        return email + Math.random();
+    }
     //endregion
 
     //region Users Data functions
-    function _putData(email, password, app, field, data, response){
-        _checkCredentials(email, password, response, function(){
+
+    /**
+     * Updates the given field for a user's app with the given data, or makes a new entry if it does not yet exist
+     * @param session_id
+     * @param app
+     * @param field
+     * @param data
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id does not exist in the database
+     * @responds K.UNAUTH if the session id is expired
+     * @responds K.OK if successful
+     */
+    function _putData(session_id, app, field, data, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("INSERT INTO user_data VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
                 [email, app, field, data, data], function(err){
-                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    if(err) _finishResponse(K.ERROR, response);
                     else _finishResponse(K.OK, response);
                 });
         });
     }
 
-    function _getData(email, password, app, field, response){
-        _checkCredentials(email, password, response, function(){
-            connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;", [email, app, field], function(err, result){
-                if(err) _finishResponse(K.ERROR, response, err.toString());
-                else if (result.length === 0) _finishResponse(K.INVALID, response);
-                else _finishResponse(K.OK, response, result[0].data);
-            });
+    /**
+     * Retrieves an entry from a user's personal application data
+     * @param session_id
+     * @param app
+     * @param field
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id or specified field does not exist in the database
+     * @responds K.UNAUTH if the session id is expired
+     * @responds K.OK if successful, with retrieved data in body
+     */
+    function _getData(session_id, app, field, response){
+        _checkCredentials(session_id, response, function(email){
+            connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;",
+                [email, app, field], function(err, result){
+                    if(err) _finishResponse(K.ERROR, response);
+                    else if (result.length === 0) _finishResponse(K.INVALID, response);
+                    else _finishResponse(K.OK, response, result[0].data);
+                });
         });
     }
 
-    function _deleteData(email, password, app, field, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Deletes an entry from a user's personal application data
+     * @param session_id
+     * @param app
+     * @param field
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id does not exist in the database
+     * @responds K.UNAUTH if the session id is expired
+     * @responds K.OK if successful
+     */
+    function _deleteData(session_id, app, field, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;",
                 [email, app, field], function(err){
-                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    if(err) _finishResponse(K.ERROR, response);
                     else _finishResponse(K.OK, response);
                 });
         });
@@ -146,13 +260,25 @@ port = 8080;
 
     //region Groups functions
     //region Host functions
-    function _startGroup(email, password, name, app, grouppass, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Opens a multi-user group with requesting user as host
+     * @param session_id
+     * @param name
+     * @param app
+     * @param password
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id does not exist in the database or if group name is already in use
+     * @responds K.UNAUTH if the session id is expired
+     * @responds K.OK if successful
+     */
+    function _startGroup(session_id, name, app, password, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("INSERT INTO groups VALUES (?, ?, ?, ?);",
-                [name, app, grouppass, email], function(err){
+                [name, app, password, email], function(err){
                     if(err) {
                         if(err.code == "ER_DUP_ENTRY") _finishResponse(K.INVALID, response);
-                        else _finishResponse(K.ERROR, response, err.toString());
+                        else _finishResponse(K.ERROR, response);
                     }
                     else {
                         hooks[name] = {};
@@ -162,8 +288,18 @@ port = 8080;
         });
     }
 
-    function _closeGroup(email, password, group, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Closes a specified group and deletes all its data
+     * @param session_id
+     * @param group
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id does not exist in the database
+     * @responds K.UNAUTH if the session id is expired or if requesting user is not host
+     * @responds K.OK if successful
+     */
+    function _closeGroup(session_id, group, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;", [group], function(err){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -179,8 +315,19 @@ port = 8080;
         });
     }
 
-    function _addMember(email, password, group, member, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Adds a user to a group, allowing them to receive updates posted by the host
+     * @param session_id
+     * @param group
+     * @param member
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id or group do not exist in the database
+     * @responds K.UNAUTH if the session id is expired or if requesting user is not host
+     * @responds K.OK if successful
+     */
+    function _addMember(session_id, group, member, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("INSERT INTO members VALUES (?, ?);", [group, member], function(err){
                     if(err) {
@@ -193,10 +340,21 @@ port = 8080;
         });
     }
 
-    function _removeMember(email, password, group, member, response){
-        _checkCredentials(email, password, response, function(){
+    /**
+     * Removes a user from a group. If removed user is host, closes group instead
+     * @param session_id
+     * @param group
+     * @param member
+     * @param response
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the session id or group do not exist in the database or user is not a member of group
+     * @responds K.UNAUTH if the session id is expired or if requesting user is not host
+     * @responds K.OK if successful
+     */
+    function _removeMember(session_id, group, member, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
-                if(email === member) _closeGroup(email, password, group, response);
+                if(email === member) _closeGroup(session_id, group, response);
                 else connection.query("SELECT 1 FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
                     [group, member], function(err, result){
                         if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -226,8 +384,8 @@ port = 8080;
         });
     }
 
-    function _submitUpdate(email, password, group, field, data, response){ //TODO: optionally set permissions
-        _checkCredentials(email, password, response, function(){
+    function _submitUpdate(session_id, group, field, data, response){ //TODO: optionally set permissions
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("INSERT INTO group_data VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE data = ?;",
                     [group, field, data, new Date().getTime(), data], function(err){
@@ -264,8 +422,8 @@ port = 8080;
         });
     }
 
-    function _listenInputs(email, password, group, timestamp, response){
-        _checkCredentials(email, password, response, function(){
+    function _listenInputs(session_id, group, timestamp, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 hooks[group][email] = response;
                 _retrieveInput(group, timestamp);
@@ -290,8 +448,8 @@ port = 8080;
         });
     }
 
-    function _grantPermission(email, password, group, member, field, response){
-        _checkCredentials(email, password, response, function(){
+    function _grantPermission(session_id, group, member, field, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("INSERT INTO permissions VALUES (?, ?, ?);", [group, member, field], function(err){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -301,8 +459,8 @@ port = 8080;
         });
     }
 
-    function _revokePermission(email, password, group, member, field, response){
-        _checkCredentials(email, password, response, function(){
+    function _revokePermission(session_id, group, member, field, response){
+        _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("DELETE FROM permissions WHERE groupname = ? AND user = ? AND field = ?;",
                     [group, member, field], function(err){
@@ -324,8 +482,8 @@ port = 8080;
     //endregion
 
     //region Member functions
-    function _submitInput(email, password, group, input, response){
-        _checkCredentials(email, password, response, function(){
+    function _submitInput(session_id, group, input, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("INSERT INTO inputs VALUES (?, ?, ?, ?);", [group, email, input, new Date().getTime()], function(err){
                 if(err) _finishResponse(K.ERROR, response, err.toString());
                 else {
@@ -336,8 +494,8 @@ port = 8080;
         });
     }
 
-    function _listenUpdates(email, password, group, timestamp, response){
-        _checkCredentials(email, password, response, function(){
+    function _listenUpdates(session_id, group, timestamp, response){
+        _checkCredentials(session_id, response, function(email){
             connection.query("SELECT 1 FROM members WHERE groupname = ? AND user = ?;",
                 [group, email], function(err, result){
                     if(err) _finishResponse(K.ERROR, response, err.toString());
@@ -365,8 +523,8 @@ port = 8080;
     }
     //endregion
 
-    function _getGroupData(email, password, group, field, response){
-        _checkCredentials(email, password, response, function(){
+    function _getGroupData(session_id, group, field, response){
+        _checkCredentials(session_id, response, function(email){
             var permitted = false;
             connection.query("(SELECT 1 FROM permissions WHERE groupname = ? AND user = ? AND field = ? LIMIT 1) UNION" +
                 "(SELECT 1 FROM groups WHERE name = ? AND host = ?);",
@@ -435,6 +593,9 @@ port = 8080;
         connection.query("CREATE TABLE IF NOT EXISTS users(" +
             "email VARCHAR (" + db_field_size.email + ")," +
             "password VARCHAR (" + db_field_size.password + ")," +
+            "timeout VARCHAR (" + db_field_size.time + ")," +
+            "session_id VARCHAR (" + db_field_size.session_id + ")," +
+            "lastping VARCHAR (" + db_field_size.time + ")," +
             "PRIMARY KEY (email));",
             function(err){
                 if(err) throw err;
@@ -516,34 +677,31 @@ port = 8080;
             data += chunk;
         });
         request.on("end", function(){
-            var auth_header = request.headers['authorization'];
-            var credentials;
-            if(auth_header !== undefined) credentials = new Buffer(auth_header.split(' ')[1], 'base64').toString().split(':');
             var parsed_url = url.parse(request.url, true);
             switch(parsed_url.pathname){
                 case "/users":
                     switch(request.method){
-                        case "HEAD":
+                        case "GET":
                             _checkUser(
                                 parsed_url.query.email,
                                 response);
                             break;
                         case "POST":
                             _register(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.email,
+                                JSON.parse(data),
+                                parsed_url.query.timeout,
                                 response);
                             break;
-                        case "GET":
+                        case "PUT":
                             _login(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.email,
+                                JSON.parse(data),
                                 response);
                             break;
                         case "DELETE":
                             _unregister(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 response);
                             break;
                         default:
@@ -559,9 +717,8 @@ port = 8080;
                             break;
                         case "PUT":
                             _changePassword(
-                                credentials[0],
-                                credentials[1],
-                                data,
+                                parsed_url.query.session_id,
+                                JSON.parse(data),
                                 response);
                             break;
                         default:
@@ -572,8 +729,7 @@ port = 8080;
                     switch(request.method){
                         case "PUT":
                             _putData(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 parsed_url.query.app,
                                 parsed_url.query.field,
                                 data,
@@ -581,16 +737,14 @@ port = 8080;
                             break;
                         case "GET":
                             _getData(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 parsed_url.query.app,
                                 parsed_url.query.field,
                                 response);
                             break;
                         case "DELETE":
                             _deleteData(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 parsed_url.query.app,
                                 parsed_url.query.field,
                                 response);
@@ -746,18 +900,24 @@ port = 8080;
         });
     }
 
-    function _checkCredentials(email, password, response, callback){
-        connection.query("SELECT password FROM users WHERE email = ?;", [email], function(err, result){
-            if(err) _finishResponse(K.ERROR, response, err.toString());
-            else if(result.length === 0) _finishResponse(K.INVALID, response);
-            else if(result[0].password !== password) _finishResponse(K.UNAUTH, response);
-            else callback();
-        });
+    function _checkCredentials(session_id, response, callback){
+        connection.query("SELECT email, timeout, lastping FROM users WHERE session_id = ? LIMIT 1;", [session_id],
+            function(err, result){
+                if(err) _finishResponse(K.ERROR, response, err.toString());
+                else if(result.length === 0) _finishResponse(K.INVALID, response);
+                else if(result[0].lastping + result[0].timeout * 60000 <= _getTime()) _finishResponse(K.UNAUTH, response);
+                else callback(result[0].email);
+            });
     }
 
     function _finishResponse(status, response, body){
         response.writeHead(status);
-        response.end(JSON.stringify(body));
+        response.end(JSON.stringify({timestamp: _getTime(), body: body}));
+        console.log(body);
+    }
+
+    function _getTime(){
+        return new Date().getTime();
     }
 })();
 
