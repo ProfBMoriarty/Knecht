@@ -299,10 +299,11 @@ port = 8080;
      * @responds K.OK if successful
      */
     function _closeGroup(session_id, group, response){
+        console.log("closing group");
         _checkCredentials(session_id, response, function(email){
             _checkHost(email, group, response, function(){
                 connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;", [group], function(err){
-                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                    if(err) _finishResponse(K.ERROR, response);
                     else {
                         _finishResponse(K.OK, response);
                         for(var member in hooks[group])
@@ -357,22 +358,22 @@ port = 8080;
                 if(email === member) _closeGroup(session_id, group, response);
                 else connection.query("SELECT 1 FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
                     [group, member], function(err, result){
-                        if(err) _finishResponse(K.ERROR, response, err.toString());
+                        if(err) _finishResponse(K.ERROR, response);
                         else if(result.length === 0) _finishResponse(K.INVALID, response);
                         else {
                             if(hooks[group][member]) _finishResponse(K.OK, hooks[group][member]);
                             connection.query("DELETE FROM members WHERE groupname = ? AND user = ? LIMIT 1;",
                                 [group, member], function(err){
-                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                    if(err) _finishResponse(K.ERROR, response);
                                     else connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ?;",
                                         [group, member], function(err){
-                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                            if(err) _finishResponse(K.ERROR, response);
                                             else connection.query("DELETE FROM updates WHERE groupname = ? AND user = ?;",
                                                 [group, member], function(err){
-                                                    if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                    if(err) _finishResponse(K.ERROR, response);
                                                     else connection.query("DELETE FROM inputs WHERE groupname = ? AND user = ?;",
                                                         [group, member], function(err){
-                                                            if(err) _finishResponse(K.ERROR, response, err.toString());
+                                                            if(err) _finishResponse(K.ERROR, response);
                                                             else _finishResponse(K.OK, response);
                                                         });
                                                 });
@@ -757,11 +758,10 @@ port = 8080;
                     switch(request.method){
                         case "POST":
                             _startGroup(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.app),
-                                data,
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.app,
+                                JSON.parse(data),
                                 response);
                             break;
                         case "GET":
@@ -771,9 +771,8 @@ port = 8080;
                             break;
                         case "DELETE":
                             _closeGroup(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
                                 response);
                             break;
                         default:
@@ -784,23 +783,21 @@ port = 8080;
                     switch(request.method){
                         case "POST":
                             _addMember(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.email),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.email,
                                 response);
                             break;
                         case "GET":
                             _listMembers(
-                                decodeURIComponent(parsed_url.query.group),
+                                parsed_url.query.group,
                                 response);
                             break;
                         case "DELETE":
                             _removeMember(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.email),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.email,
                                 response);
                             break;
                         default:
@@ -811,20 +808,18 @@ port = 8080;
                     switch(request.method){
                         case "PUT":
                             _submitUpdate(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.field),
-                                data,
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.field,
+                                JSON.parse(data),
                                 response
                             );
                             break;
                         case "GET":
                             _getGroupData(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.field),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.field,
                                 response
                             );
                             break;
@@ -836,8 +831,7 @@ port = 8080;
                     switch(request.method){
                         case "PUT":
                             _grantPermission(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 parsed_url.query.group,
                                 parsed_url.query.email,
                                 parsed_url.query.field,
@@ -846,8 +840,7 @@ port = 8080;
                             break;
                         case "DELETE":
                             _revokePermission(
-                                credentials[0],
-                                credentials[1],
+                                parsed_url.query.session_id,
                                 parsed_url.query.group,
                                 parsed_url.query.email,
                                 parsed_url.query.field,
@@ -862,19 +855,17 @@ port = 8080;
                     switch(request.method){
                         case "POST":
                             _submitInput(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
                                 data,
                                 response
                             );
                             break;
                         case "GET":
                             _listenInputs(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.time),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.time,
                                 response
                             );
                             break;
@@ -886,10 +877,9 @@ port = 8080;
                     switch(request.method){
                         case "GET":
                             _listenUpdates(
-                                credentials[0],
-                                credentials[1],
-                                decodeURIComponent(parsed_url.query.group),
-                                decodeURIComponent(parsed_url.query.time),
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.time,
                                 response
                             );
                             break;
@@ -900,16 +890,38 @@ port = 8080;
         });
     }
 
+    /**
+     * Checks if a session token corresponds to an entry in the users table, and if so if that token is expired or not
+     * If token is valid, resets the timeout period on it
+     * @param session_id
+     * @param response
+     * @param callback
+     * @responds K.ERROR if there is an error with the queries
+     * @responds K.INVALID if the token is not found on the database
+     * @responds K.UNAUTH if the token is expired
+     * @callback otherwise
+     */
     function _checkCredentials(session_id, response, callback){
         connection.query("SELECT email, timeout, lastping FROM users WHERE session_id = ? LIMIT 1;", [session_id],
             function(err, result){
                 if(err) _finishResponse(K.ERROR, response, err.toString());
                 else if(result.length === 0) _finishResponse(K.INVALID, response);
                 else if(result[0].lastping + result[0].timeout * 60000 <= _getTime()) _finishResponse(K.UNAUTH, response);
-                else callback(result[0].email);
+                else connection.query("UPDATE users SET lastping = ? WHERE email = ? LIMIT 1;", [_getTime(), result[0].email],
+                        function(err){
+                            if(err) _finishResponse(K.ERROR, response);
+                            callback(result[0].email);
+                        });
             });
     }
 
+    /**
+     * Writes an http status header to the given response object and sends the response to the requesting user with
+     * the time of response and the given content in the message body
+     * @param status
+     * @param response
+     * @param body
+     */
     function _finishResponse(status, response, body){
         response.writeHead(status);
         response.end(JSON.stringify({timestamp: _getTime(), body: body}));
