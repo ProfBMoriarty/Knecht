@@ -229,9 +229,14 @@ var K = {};
     //this function returns nothing
     //note that the account that is logged in when this function is called becomes the host of the created group
     K.startGroup = function(group, grouppass, callback){
-        _sendRequest("POST", "/groups?app=" + _app + "&group=" + encodeURIComponent(group), function(status){
-            callback(K.responses[status]);
-        }, grouppass);
+        _sendRequest("POST", "/groups?session_id=" + _session_id + "&app=" + _app + "&group=" + encodeURIComponent(group),
+            function(status, result){
+                if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                    if(result.result === K.OK) K.startGroup(group, grouppass, callback);
+                    else callback({timestamp: result.timestamp, result: K.UNAUTH});
+                });
+                else callback({timestamp: result.timestamp, result: K.responses[status]});
+            }, grouppass);
     };
 
     //this function ends the group, deleting any queued messages or stored group data
@@ -243,9 +248,14 @@ var K = {};
     //note that only the host of the group can close it
     //note that this cannot be undone; take care not to call this function prematurely
     K.closeGroup = function(group, callback) {
-        _sendRequest("DELETE", "/groups?group=" + group, function(status){
-            callback(K.responses[status]);
-        });
+        _sendRequest("DELETE", "/groups?session_id=" + _session_id + "&group=" + encodeURIComponent(group),
+            function(status, result){
+                if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                    if(result.result === K.OK) K.closeGroup(group, callback);
+                    else callback({timestamp: result.timestamp, result: K.UNAUTH});
+                });
+                else callback({timestamp: result.timestamp, result: K.responses[status]});
+            });
     };
 
     //this function adds a new member to a group; this means that updates will be sent to them but the member must first
@@ -258,9 +268,14 @@ var K = {};
     //this function returns nothing
     //note that only the host of the group can add members to it
     K.addMember = function(group, email, callback) {
-        _sendRequest("POST", "/groups/members?group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(email),
-            function(status){
-                callback(K.responses[status]);
+        _sendRequest("POST", "/groups/members?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(email),
+            function(status, result){
+                if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                    if(result.result === K.OK) K.addMember(group, email, callback);
+                    else callback({timestamp: result.timestamp, result: K.UNAUTH});
+                });
+                else callback({timestamp: result.timestamp, result: K.responses[status]});
             });
     };
 
@@ -274,8 +289,8 @@ var K = {};
     //note that the client calling this function need not be a member of the group
     K.listMembers = function(group, callback){
         _sendRequest("GET", "/groups/members?group=" + encodeURIComponent(group), function(status, result){
-            if(K.responses[status] = K.OK) callback(result);
-            else callback(K.responses[status]);
+            if(K.responses[status] = K.OK) callback({timestamp: result.timestamp, result: result.body});
+            else callback({timestamp: result.timestamp, result: K.responses[status]});
         });
     };
 
@@ -289,9 +304,14 @@ var K = {};
     //note that this function deletes any pending updates for the removed member; be careful not to call this function
     //too early
     K.removeMember = function(group, email, callback) {
-        _sendRequest("DELETE", "/groups/members?group=" + encodeURIComponent(group) + "&user=" + encodeURIComponent(email),
-            function(status){
-                callback(K.responses[status]);
+        _sendRequest("DELETE", "/groups/members?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(email),
+            function(status, result){
+                if(K.responses[status] === K.UNAUTH) K.login(_email, _password, function(result){
+                    if(result.result === K.OK) K.removeMember(group, email, callback);
+                    else callback({timestamp: result.timestamp, result: K.UNAUTH});
+                });
+                else callback({timestamp: result.timestamp, result: K.responses[status]});
             });
     };
 
@@ -309,7 +329,8 @@ var K = {};
     //be alerted
     //note that only the host may use this function
     K.submitUpdate = function(group, field, data, callback){
-        _sendRequest("PUT", "/groups/data?group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status){
+        _sendRequest("PUT", "/groups/data?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status){
             callback(K.responses[status]);
         }, data);
     }
@@ -324,7 +345,8 @@ var K = {};
     //this function returns nothing
     //note that this function can be called by either the host or members but members must have permission
     K.getGroupData = function(group, field, callback){
-        _sendRequest("GET", "/groups/data?group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status, result){
+        _sendRequest("GET", "/groups/data?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&field=" + encodeURIComponent(field), function(status, result){
             if(K.responses[status] === K.OK) callback(result);
             else callback(K.responses[status]);
         });
@@ -341,8 +363,9 @@ var K = {};
     //note that only the host can call this function
     //note that the member granted permission is not automatically alerted
     K.grantPermission = function(group, user, field, callback){
-        _sendRequest("PUT", "/groups/data/permissions?group=" +
-            encodeURIComponent(group) + "&email=" + encodeURIComponent(user) + "&field=" + encodeURIComponent(field), function(status){
+        _sendRequest("PUT", "/groups/data/permissions?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(user) +
+            "&field=" + encodeURIComponent(field), function(status){
             callback(K.responses[status]);
         });
     }
@@ -359,8 +382,9 @@ var K = {};
     //note that only the host can call this function
     //note that the member denied permission is not automatically alerted
     K.revokePermission = function(group, user, field, callback){
-        _sendRequest("DELETE", "/groups/data/permissions?group=" +
-            encodeURIComponent(group) + "&email=" + encodeURIComponent(user) + "&field=" + encodeURIComponent(field), function(status){
+        _sendRequest("DELETE", "/groups/data/permissions?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) + "&email=" + encodeURIComponent(user) +
+            "&field=" + encodeURIComponent(field), function(status){
             callback(K.responses[status]);
         });
     }
@@ -380,7 +404,7 @@ var K = {};
     //note that because this function is tail recursive so it needs to only be called once by the application unless it
     //encounters an error in which case the code is passed to the callback function
     K.listenInputs = function(group, callback){
-        _sendRequest("GET", "/groups/input?group=" + encodeURIComponent(group) +
+        _sendRequest("GET", "/groups/input?session_id=" + _session_id + "&group=" + encodeURIComponent(group) +
             "&time=" + new Date().getTime(), function(status, data){
             if(data) callback(data);
             else callback(K.responses[status]);
@@ -415,7 +439,8 @@ var K = {};
     //Constants section
     //this function returns nothing
     K.submitInput = function(group, data, callback){
-        _sendRequest("POST", "/groups/input?group=" + encodeURIComponent(group), function(status){
+        _sendRequest("POST", "/groups/input?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group), function(status){
             callback(K.responses[status]);
         }, data);
     }
@@ -434,7 +459,8 @@ var K = {};
     //note that this function does not access the update itself in any way; it is intended that the callback function
     //will call the getGroupData function from the Host section to access the update
     K.listenUpdates = function(group, callback){
-        _sendRequest("GET", "/groups/updates?group=" + encodeURIComponent(group) +
+        _sendRequest("GET", "/groups/updates?session_id=" + _session_id +
+            "&group=" + encodeURIComponent(group) +
             "&email=" +encodeURIComponent(_email) +
             "&time=" + new Date().getTime(), function(status, data){
             if(data) callback(data);
@@ -477,9 +503,41 @@ var u1 = 'u1';
 var u2 = 'u2';
 var p1 = 'p1';
 var p2 = 'p2';
+var p3 = 'p3';
 var f1 = 'f1';
 var d1 = 'd1';
+var g1 = 'g1';
+var g2 = 'g2';
+
 
 K.setAddress("http://localhost:8080");
 K.setApplication("a");
 
+K.register(u2, p2, function(r){
+    K.register(u1, p1, function(r){
+        K.startGroup(g1, p3, function(r){
+            console.log(JSON.stringify(r));
+            K.listMembers(g1, function(r){
+                console.log(JSON.stringify(r));
+                K.addMember(g1, u2, function(r){
+                    console.log(JSON.stringify(r));
+                    K.listMembers(g1, function(r){
+                        console.log(JSON.stringify(r));
+                        K.addMember(g1, u2, function(r){
+                            console.log(JSON.stringify(r));
+                            K.listMembers(g1, function(r){
+                                console.log(JSON.stringify(r));
+                                K.removeMember(g1, u1, function(r){
+                                    console.log(JSON.stringify(r));
+                                    K.listMembers(g1, function(r){
+                                        console.log(JSON.stringify(r));
+                                    });
+                                });
+                            });
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
