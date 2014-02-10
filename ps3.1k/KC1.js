@@ -1,3 +1,5 @@
+// New version!
+
 var K = {};
 
 (function ()
@@ -33,7 +35,6 @@ var K = {};
 	K.UNAUTH = K.responses[401];
 	K.INVALID = K.responses[403];
 	K.ERROR = K.responses[500];
-
 //endregion
 
 //region Config Functions
