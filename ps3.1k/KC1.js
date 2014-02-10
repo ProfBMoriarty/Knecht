@@ -1,26 +1,58 @@
-// New version!
-
 var K = {};
 
 (function ()
 {
-//region Globals
+
+	//region Globals
 	//these variables are used to track qualities that rarely change between requests so the application doesn't have to
-	//continuously pass them into the functions
-
+	//continuously pass them into the functions.
 	var _address = null;  //the address of the server
+	var _app = null;  //the name of the application; all versions of a client that want to talk to each other should use
+	//the exact same name
+	var _email = null;  //the user's email address serving as the name of his account.
+	var _password = null;  //the user's password, used to validate the account
+	var _session_id = null; //the authenticaton token from the most recent login
 
-	//the name of the application; all versions of a client that want to talk to each other should use the exact same name
+//  var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;  //require the browser to load AJAX so requests can be made
+	//endregion
 
-	var _app = null;
-	var _email = null; // the user's email address serving as the name of his account.
-	var _password = null; // the user's password, used to validate the account
-	var _session_id = null; // the authentication token from the most recent login
+	//endregion
 
-	var XMLHttpRequest = require( "xmlhttprequest" ).XMLHttpRequest;  //require the browser to load AJAX so requests can be made
-//endregion
+	//region Helper functions
+	//these functions are used by the other functions in this document; they are not invoked by the application under
+	//normal circumstances
 
-//region Constants
+	//this function sends an Ajax request to the server
+	//the method parameter is a string that is an http request protocol
+	//the path parameter is the URI the request should be sent to; since the server uses a restful API, the server
+	//function is in this string
+	//the callback parameter is a function that takes the following parameters
+	//  a response code as defined in the Constants section indicating the success or failure of the request
+	//  an optional object that is the value returned from the server if one is returned
+	//the callback function is invoked when a response is received from the server
+	//the optional body parameter is an object that is sent to the server in the body of the Ajax request
+	//this function returns nothing
+	//note that applications should not call this function directly
+	function _sendRequest ( method, path, callback, body )
+	{
+		var request, val;
+
+		request = new XMLHttpRequest();
+		request.onreadystatechange = function ()
+		{
+			if ( request.readyState === request.DONE )
+			{
+				callback( request.status, JSON.parse( request.responseText ) );
+			}
+		};
+		val = _address + path;
+		request.open( method, val, true );
+		val = JSON.stringify( body );
+		request.send( val );
+	}
+
+	//endregion
+	//region Constants
 	//standard response codes
 	K.responses = {
 		200 : "K.OK", //this indicates that the request was successful; if it was a get request it will be accompanied by
@@ -30,35 +62,33 @@ var K = {};
 		403 : "K.INVALID", //this indicates that the parameters of the request are invalid, perhaps because a field that
 		//must be unique is already in use or a field to be retrieved does not exist
 		500 : "K.ERROR" //this indicates that an unknown error has occurred, perhaps because of connection failure
+
 	};
 	K.OK = K.responses[200];
 	K.UNAUTH = K.responses[401];
 	K.INVALID = K.responses[403];
 	K.ERROR = K.responses[500];
-//endregion
+	//endregion
 
-//region Config Functions
+	//region Config Functions
 	//this function specifies the address of the server; it must be called before any requests can be made
 	//the address variable is the web URI of the server that requests are to be sent to
 	//this function returns nothing
-
 	K.setAddress = function ( address )
 	{
-		_address = encodeURI( address ); // user input must be sanitized before it can be included in the URI
+		_address = encodeURI( address );  //user input must be sanitized before it can be included in the URI
 	};
 
 	//this function specifies the name of the running application; applications with different names can not access data
 	//stored under the name of this application
 	//this function returns nothing
-
 	K.setApplication = function ( app )
 	{
 		_app = encodeURIComponent( app );  //user input must be sanitized before it can be included in the URI
 	};
+	//endregion
 
-//endregion
-
-//region Users functions
+	//region Users functions
 	//these functions deal with managing user accounts and are application independent
 
 	//this function verifies that the given email is not already in use and therefore can be used to make a new account
@@ -95,7 +125,6 @@ var K = {};
 	//the callback function must take one parameter that is the response code from the server as defined in the
 	//Constants section
 	//this function returns nothing
-
 	K.register = function ( email, password, callback, timeout )
 	{
 		_email = encodeURIComponent( email );
@@ -507,7 +536,7 @@ var K = {};
 		              {
 			              callback( K.responses[status] );
 		              }, data );
-	};
+	}
 
 	//this function retrieves data from the server that is allocated to the group
 	//the group parameter is a string that is the name of the group the data is associated with
@@ -532,7 +561,7 @@ var K = {};
 				              callback( K.responses[status] );
 			              }
 		              } );
-	};
+	}
 
 	//this function grants a member permission to view a specific object stored on the server in the group's name
 	//the group parameter is a string that is the name of the group the data is associated with
@@ -552,7 +581,7 @@ var K = {};
 		              {
 			              callback( K.responses[status] );
 		              } );
-	};
+	}
 
 	//this function removes a member's permission to view a specific object stored on the server in the group's name
 	//the group parameter is a string that is the name of the group the data is associated with
@@ -573,7 +602,7 @@ var K = {};
 		              {
 			              callback( K.responses[status] );
 		              } );
-	};
+	}
 
 	//this function sends an httprequest that waits for a messages from members
 	//the group parameter is a string that is the name of the group to listen to; the currently logged in user must be
@@ -607,7 +636,7 @@ var K = {};
 				              K.listenInputs( group, callback );
 			              }
 		              } );
-	};
+	}
 
 	//endregion
 
@@ -650,7 +679,7 @@ var K = {};
 		              {
 			              callback( K.responses[status] );
 		              }, data );
-	};
+	}
 
 	//this function sends an httprequest that waits for a messages from the host
 	//the group parameter is a string that is the name of the group to listen to; the currently logged in user need not
@@ -685,47 +714,12 @@ var K = {};
 				              K.listenInputs( group, callback );
 			              }
 		              } );
-	};
-
-	//endregion
-
-	//endregion
-
-	//region Helper functions
-	//these functions are used by the other functions in this document; they are not invoked by the application under
-	//normal circumstances
-
-	//this function sends an Ajax request to the server
-	//the method parameter is a string that is an http request protocol
-	//the path parameter is the URI the request should be sent to; since the server uses a restful API, the server
-	//function is in this string
-	//the callback parameter is a function that takes the following parameters
-	//  a response code as defined in the Constants section indicating the success or failure of the request
-	//  an optional object that is the value returned from the server if one is returned
-	//the callback function is invoked when a response is received from the server
-	//the optional body parameter is an object that is sent to the server in the body of the Ajax request
-	//this function returns nothing
-	//note that applications should not call this function directly
-	function _sendRequest ( method, path, callback, body )
-	{
-		var request = new XMLHttpRequest();
-		request.onreadystatechange = function ()
-		{
-			if ( request.readyState === request.DONE )
-			{
-				callback( request.status, JSON.parse( request.responseText ) );
-			}
-		};
-		request.open( method, _address + path, true );
-		request.send( JSON.stringify( body ) );
 	}
-
 	//endregion
 }() );
 
 /*
 var u1 = 'u1';
-
 var u2 = 'u2';
 var p1 = 'p1';
 var p2 = 'p2';
@@ -734,6 +728,7 @@ var f1 = 'f1';
 var d1 = 'd1';
 var g1 = 'g1';
 var g2 = 'g2';
+
 
 K.setAddress("http://localhost:8080");
 K.setApplication("a");
@@ -766,4 +761,4 @@ K.register(u2, p2, function(r){
         });
     });
 });
- */
+*/

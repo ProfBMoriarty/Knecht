@@ -16,7 +16,7 @@ var PAINT = {
 	// Constant names are all upper-case to make them easy to distinguish
 
 	WIDTH: 16, // width of grid
-	HEIGHT: 17, // height of grid (one extra row for palette)
+	HEIGHT: 18, // height of grid (one extra row for palette and one for database access)
 	PALETTE_ROW: 16, // row occupied by palette
 	WHITE: 8, // x-position of white in palette
 	ERASE_X: 15, // x-position of X in palette
@@ -122,6 +122,14 @@ PS.init = function( system, options ) {
 	PS.glyph( lastx, lasty, "X" );
 	PS.exec( lastx, lasty, PAINT.reset ); // call PAINT.Reset when clicked
 
+    //Set up database stuff
+
+    PS.glyphColor(PS.ALL, 17, PS.COLOR_BLACK);
+    PS.glyph(0, 17, "S");    //To save image
+    PS.glyph(1, 17, "R");    //To restore image
+    PS.glyph(2, 17, "I");    //To sign up to database
+    PS.glyph(3, 17, "L");    //To Log into database
+
 	// Start with white selected
 
 	PS.border( PAINT.WHITE, PAINT.PALETTE_ROW, 2 );
@@ -129,6 +137,9 @@ PS.init = function( system, options ) {
 	PAINT.color = PS.COLOR_WHITE;
 
 	PAINT.reset();
+
+    K.setAddress("localhost:8080");
+    K.setApplication("PSPaint");
 
 	PS.statusText( "Simple Paint" );
 };
@@ -144,7 +155,86 @@ PS.touch = function( x, y, data, options ) {
 		PAINT.dragging = true;
 		PAINT.underColor = PAINT.color;
 		PS.color( x, y, PAINT.color );
+		return;
 	}
+
+    //If the player clicks in the database row
+    if (y == 17)
+    {
+        if (PS.glyph(x, y) == 83)
+        {
+            var portrait, i, j;
+            portrait = [];
+            for(i=0;i<PS.WIDTH;i++)
+            {
+                for(j=0;j<16;j++)
+                {
+                    var loc = (i*16) + j;
+
+                    portrait[loc] = PS.color(i, j, PS.CURRENT);
+                }
+            }
+
+            var to_save = {
+                IMAGE: portrait
+            };
+            //Save image
+            K.putData("Portrait", to_save, function(ret_obj){
+                //
+                if(ret_obj.response == K.OK)
+                {
+                    PS.statusText("Save Successful.");
+                }
+            });
+        }
+
+        else if (PS.glyph(x, y) == 82)
+        {
+            //Restore image
+            K.getData("Portrait", function(ret_obj){
+                //
+                if(ret_obj.response == K.OK)
+                {
+                    PS.statusText("Restore Successful.");
+
+                    var i, j, portrait;
+                    portrait = ret_obj.body;
+
+                    for(i=0;i<PS.WIDTH;i++)
+                    {
+                        for(j=0;j<16;j++)
+                        {
+                            var loc = (i*16) + j;
+                            PS.color(i,j, portrait.IMAGE[loc]);
+                        }
+                    }
+                }
+            });
+        }
+
+        else if (PS.glyph(x, y) == 73)
+        {
+            //Sign Up/Register
+            K.register("caintoad@gmail.com", "SWAG", function(ret_obj){
+                if(ret_obj.response == K.OK)
+                {
+                    PS.statusText("Registration Successful.");
+                }
+            });
+        }
+
+        else if (PS.glyph(x, y) == 76)
+        {
+            //Log in
+            K.login("caintoad@gmail.com", "SWAG", function(ret_obj){
+                //
+                if(ret_obj.response == K.OK)
+                {
+                    PS.statusText("Login Successful.");
+                }
+            });
+        }
+    }
 };
 
 // PS.release ( x, y, data, options )

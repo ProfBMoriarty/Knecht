@@ -1,5 +1,5 @@
 var K = {};
-port = 8080;
+var port = 8080;
 
 (function(){
     //region Constants
@@ -931,7 +931,7 @@ port = 8080;
     function _getTime(){
         return new Date().getTime();
     }
-})();
+}() );
 
 K.server.listen(port);
 

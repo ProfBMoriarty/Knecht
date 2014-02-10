@@ -1,12 +1,12 @@
 var K = {};
-port = 8080;
+var port = 8080;
 
 (function(){
     //region Constants
     var db_config = {
         host: "localhost",
         user: "root",
-        password:"pass",
+        password:"V3n3diggM",
         delay: 2000
     };
 
@@ -931,7 +931,7 @@ port = 8080;
     function _getTime(){
         return new Date().getTime();
     }
-})();
+}() );
 
 K.server.listen(port);
 
