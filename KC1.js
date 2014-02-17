@@ -11,7 +11,7 @@ var K = {};
 	//the exact same name
 	var _email = null;  //the user's email address serving as the name of his account.
 	var _password = null;  //the user's password, used to validate the account
-	var _session_id = null; //the authenticaton token from the most recent login
+	var _session_id = null; //the authentication token from the most recent login
 
 //  var XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest;  //require the browser to load AJAX so requests can be made
 	//endregion
@@ -45,6 +45,7 @@ var K = {};
 				callback( request.status, JSON.parse( request.responseText ) );
 			}
 		};
+		request.overrideMimeType( "application/json" );
 		val = _address + path;
 		request.open( method, val, true );
 		val = JSON.stringify( body );
@@ -285,6 +286,7 @@ var K = {};
 		_sendRequest( "GET", "/users/data?session_id=" + _session_id +
 			"&app=" + _app + "&field=" + encodeURIComponent( field ), function ( status, result )
 		              {
+			              var data = null;
 			              if ( K.responses[status] === K.UNAUTH )
 			              {
 				              K.login( _email, _password, function ( result )
@@ -295,17 +297,33 @@ var K = {};
 					              }
 					              else
 					              {
-						              callback( {timestamp : result.timestamp, result : K.UNAUTH} );
+						              callback( {
+										timestamp : result.timestamp,
+							            result : K.UNAUTH,
+						                data: data
+						             } );
 					              }
 				              } );
 			              }
 			              else if ( K.responses[status] === K.OK )
 			              {
-				              callback( {timestamp : result.timestamp, result : result.body} );
+				              if ( result.body )
+				              {
+					              data = JSON.parse(result.body);
+				              }
+				              callback( {
+					            result : K.OK,
+								timestamp : result.timestamp,
+					            data : data
+				              } );
 			              }
 			              else
 			              {
-				              callback( {timestamp : result.timestamp, result : K.responses[status]} );
+				              callback( {
+					            timestamp : result.timestamp,
+					            result : K.responses[status],
+				                data : data
+				              } );
 			              }
 		              } );
 	};

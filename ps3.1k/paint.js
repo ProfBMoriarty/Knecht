@@ -25,7 +25,7 @@ var PAINT = {
 
 	COLORS: [
 		0xFF0000, 0xFF8000, 0xFFFF00, 0x00C000, 0x00FFFF,
-		0x4040FF, 0x8040FF, 0xFF00FF, 0xFFFFFF, 0xC0C0C0,
+		0x0000FF, 0x8040FF, 0xFF00FF, 0xFFFFFF, 0xC0C0C0,
 		0xA0A0A0, 0x808080, 0x606060, 0x404040, 0x000000
 	],
 
@@ -138,7 +138,7 @@ PS.init = function( system, options ) {
 
 	PAINT.reset();
 
-    K.setAddress("localhost:8080");
+	K.setAddress("http://localhost:8080");
     K.setApplication("PSPaint");
 
 	PS.statusText( "Simple Paint" );
@@ -159,76 +159,70 @@ PS.touch = function( x, y, data, options ) {
 	}
 
     //If the player clicks in the database row
-    if (y == 17)
+    if ( y === 17 )
     {
-        if (PS.glyph(x, y) == 83)
+        if ( PS.glyph(x, y) === 83 )
         {
-            var portrait, i, j;
-            portrait = [];
-            for(i=0;i<PS.WIDTH;i++)
+            var portrait, row, col;
+	        portrait = [];
+            for ( col = 0; col < PAINT.PALETTE_ROW; col += 1 )
             {
-                for(j=0;j<16;j++)
+                for ( row = 0; row < PAINT.WIDTH; row += 1 )
                 {
-                    var loc = (i*16) + j;
-
-                    portrait[loc] = PS.color(i, j, PS.CURRENT);
+                    portrait.push( PS.color( row, col ) );
                 }
             }
 
-            var to_save = {
-                IMAGE: portrait
-            };
+            var to_save = { image: portrait };
             //Save image
             K.putData("Portrait", to_save, function(ret_obj){
-                //
-                if(ret_obj.response == K.OK)
+                if ( ret_obj.result === K.OK )
                 {
                     PS.statusText("Save Successful.");
                 }
             });
         }
 
-        else if (PS.glyph(x, y) == 82)
+        else if ( PS.glyph(x, y) === 82 )
         {
             //Restore image
-            K.getData("Portrait", function(ret_obj){
+            K.getData( "Portrait", function(ret_obj ) {
                 //
-                if(ret_obj.response == K.OK)
+                if ( ret_obj.result === K.OK )
                 {
-                    PS.statusText("Restore Successful.");
-
-                    var i, j, portrait;
-                    portrait = ret_obj.body;
-
-                    for(i=0;i<PS.WIDTH;i++)
-                    {
-                        for(j=0;j<16;j++)
-                        {
-                            var loc = (i*16) + j;
-                            PS.color(i,j, portrait.IMAGE[loc]);
-                        }
-                    }
+                    var ptr, portrait, row, col;
+	                ptr = 0;
+	                portrait = ret_obj.data.image;
+	                for ( col = 0; col < PAINT.PALETTE_ROW; col += 1 )
+	                {
+		                for ( row = 0; row < PAINT.WIDTH; row += 1 )
+		                {
+			                PS.color( row, col, portrait[ ptr ] );
+			                ptr += 1;
+		                }
+	                }
+	                PS.statusText("Restore Successful.");
                 }
             });
         }
 
-        else if (PS.glyph(x, y) == 73)
+        else if ( PS.glyph(x, y) === 73 )
         {
             //Sign Up/Register
             K.register("caintoad@gmail.com", "SWAG", function(ret_obj){
-                if(ret_obj.response == K.OK)
+                if( ret_obj.result === K.OK )
                 {
                     PS.statusText("Registration Successful.");
                 }
             });
         }
 
-        else if (PS.glyph(x, y) == 76)
+        else if ( PS.glyph(x, y) === 76 )
         {
             //Log in
-            K.login("caintoad@gmail.com", "SWAG", function(ret_obj){
+            K.login("caintoad@gmail.com", "SWAG", function(ret_obj) {
                 //
-                if(ret_obj.response == K.OK)
+                if(ret_obj.result == K.OK)
                 {
                     PS.statusText("Login Successful.");
                 }

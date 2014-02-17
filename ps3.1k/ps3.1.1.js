@@ -972,10 +972,7 @@ var PS; // Global namespace for public API
 
 		_clockActive = false;
 
-		if ( ( typeof message !== "string" ) || ( message.length < 1 ) )
-		{
-			message = "???";
-		}
+		message = message.toString();
 
 		str = "ERROR: " + message + "\n";
 

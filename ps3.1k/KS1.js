@@ -26,6 +26,8 @@ var port = 8080;
     K.UNAUTH = 401;
     K.INVALID = 403;
     K.ERROR = 500;
+    
+    var access_whitelist = '*';
 
     //endregion
 
@@ -225,7 +227,8 @@ var port = 8080;
      * @responds K.UNAUTH if the session id is expired
      * @responds K.OK if successful, with retrieved data in body
      */
-    function _getData(session_id, app, field, response){
+    function _getData(session_id, app, field, response)
+    {
         _checkCredentials(session_id, response, function(email){
             connection.query("SELECT data FROM user_data WHERE user = ? AND app = ? AND field = ? LIMIT 1;",
                 [email, app, field], function(err, result){
@@ -705,6 +708,9 @@ var port = 8080;
                                 parsed_url.query.session_id,
                                 response);
                             break;
+                        case "OPTIONS":
+                            _respondOptions('GET, POST, PUT, DELETE, OPTIONS', response);
+                            break;
                         default:
                             _finishResponse(501, response);
                     }
@@ -721,6 +727,9 @@ var port = 8080;
                                 parsed_url.query.session_id,
                                 JSON.parse(data),
                                 response);
+                            break;
+                        case "OPTIONS":
+                            _respondOptions('GET, PUT, OPTIONS', response);
                             break;
                         default:
                             _finishResponse(501, response);
@@ -750,6 +759,9 @@ var port = 8080;
                                 parsed_url.query.field,
                                 response);
                             break;
+                        case "OPTIONS":
+                            _respondOptions('GET, PUT, DELETE, OPTIONS', response);
+                            break;
                         default:
                             _finishResponse(501, response);
                     }
@@ -774,6 +786,9 @@ var port = 8080;
                                 parsed_url.query.session_id,
                                 parsed_url.query.group,
                                 response);
+                            break;
+                        case "OPTIONS":
+                            _respondOptions('GET, POST, DELETE, OPTIONS', response);
                             break;
                         default:
                             _finishResponse(501, response);
@@ -800,6 +815,9 @@ var port = 8080;
                                 parsed_url.query.email,
                                 response);
                             break;
+                        case "OPTIONS":
+                            _respondOptions('GET, POST, DELETE, OPTIONS', response);
+                            break;
                         default:
                             _finishResponse(501, response);
                     }
@@ -822,6 +840,9 @@ var port = 8080;
                                 parsed_url.query.field,
                                 response
                             );
+                            break;
+                        case "OPTIONS":
+                            _respondOptions('GET, PUT, OPTIONS', response);
                             break;
                         default:
                             _finishResponse(501, response);
@@ -847,6 +868,9 @@ var port = 8080;
                                 response
                             );
                             break;
+                        case "OPTIONS":
+                            _respondOptions('PUT, DELETE, OPTIONS', response);
+                            break;
                         default:
                             _finishResponse(501, response);
                     }
@@ -869,6 +893,9 @@ var port = 8080;
                                 response
                             );
                             break;
+                        case "OPTIONS":
+                            _respondOptions('GET, POST, OPTIONS', response);
+                            break;
                         default:
                             _finishResponse(501, response);
                     }
@@ -883,6 +910,11 @@ var port = 8080;
                                 response
                             );
                             break;
+                        case "OPTIONS":
+                            _respondOptions('GET, OPTIONS', response);
+                            break;
+                        default:
+                            _finishResponse(501, response);
                     }
                 default:
                     _finishResponse(400, response);
@@ -923,9 +955,13 @@ var port = 8080;
      * @param body
      */
     function _finishResponse(status, response, body){
-        response.writeHead(status);
+        response.writeHead(status, {'Access-Control-Allow-Origin': access_whitelist, 'Cache-Control': 'max-age=0'});
         response.end(JSON.stringify({timestamp: _getTime(), body: body}));
-        console.log(body);
+    }
+
+    function _respondOptions(methods, response){
+        response.writeHead(K.OK, {'Access-Control-Allow-Origin': access_whitelist, 'Cache-Control': 'max-age=0', 'Access-Control-Allow-Methods': methods});
+        response.end();
     }
 
     function _getTime(){
