@@ -444,6 +444,35 @@ var K = {};
             }
         }, data);
     }
+
+    K.getGroupData = function ( group, fields, callback )
+    {
+        _sendRequest( "GET", "/groups/data?session_id=" + _session_id +
+            "&group=" + encodeURIComponent( group ) + "&fields=" + encodeURIComponent( JSON.stringify(fields) ),
+            function ( status, result )
+        {
+            if ( K.responses[status] === K.UNAUTH )
+            {
+                K.login( _email, _password, function ( result )
+                {
+                    if ( result['status'] === K.OK )
+                    {
+                        K.getGroupData( group, fields, callback );
+                    }
+                    else
+                    {
+                        result['status'] = K.UNAUTH;
+                        callback(result);
+                    }
+                } );
+            }
+            else
+            {
+                result['status'] = K.responses[status];
+                callback(result);
+            }
+        } );
+    }
     //endregion
 
     //region Group Permissions functions
