@@ -905,7 +905,73 @@ var K = {};
     }
 
     function _getGroupData(session_id, group, fields, response){
+        if(!_isJSON(fields))
+        {
+            _finishResponse(INVALID, response);
+            return;
+        }
+        fields = JSON.parse(fields);
+        if(typeof(session_id) !== 'string' || typeof(group) !== 'string' || !(fields instanceof Array))
+        {
+            _finishResponse(INVALID, response);
+            return;
+        }
         _checkCredentials(session_id, response, function(email){
+            connection.query("SELECT host FROM groups WHERE groupname = ? LIMIT 1;", [group], function(err, host){
+                if(err) _finishResponse(ERROR, response);
+                else if(host.length === 0) _finishResponse(INVALID, response);
+                else
+                {
+                    var query_fields = ''
+                    for(var i = 0; i < fields.length; i++){
+                        query_fields += "field = " + connection.escape(fields[i]);
+                        if(i < fields.length -1) query_fields += " OR ";
+                    }
+
+                    connection.query("SELECT field, data from group_data WHERE (" + query_fields + ") AND" +
+                        "EXISTS (SELECT 1 FROM permissions WHERE groupname = ? AND " +
+                        "(((user = ? OR user = ?) AND group_data.field = permissions.field));",
+                        [group, email, host[0].host, email, host[0].host], function(err, result){
+                            if(err) _finishResponse(ERROR, response);
+                            else
+                            {
+                                if(err) _finishResponse(ERROR, response);
+                                else{
+                                    var data = {};
+                                    for(var i = 0; i < result.length; i++)
+                                    {
+                                        data[result[i]['field']] = JSON.parse(result[i]['data']);
+                                    }
+                                    _finishResponse(OK, response, {data: data});
+                                }
+                            }
+                        });
+                }
+            });
+
+
+
+            var query_fields = ''
+            for(var i = 0; i < fields.length; i++){
+                query_fields += "field = " + connection.escape(fields[i]);
+                if(i < fields.length -1) query_fields += " OR ";
+            }
+            connection.query("SELECT field, data FROM group_data WHERE groupname = ? AND AND (" + query_fields + ");",
+                [group, app], function(err, result)
+                {
+                    if(err) _finishResponse(ERROR, response);
+                    else{
+                        var data = {};
+                        for(var i = 0; i < result.length; i++)
+                        {
+                            data[result[i]['field']] = JSON.parse(result[i]['data']);
+                        }
+                        _finishResponse(OK, response, {data: data});
+                    }
+                });
+
+
+
             connection.query("SELECT host FROM groups WHERE groupname = ? LIMIT 1;", [group], function(err, host){
                if(err) _finishResponse(ERROR, response);
                 else if(host.length === 0) _finishResponse(INVALID, response);
