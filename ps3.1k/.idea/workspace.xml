@@ -30,7 +30,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             <state line="317" column="34" selection-start="13593" selection-end="13593" vertical-scroll-proportion="0.0">
+=======
+            <state line="52" column="5" selection-start="2237" selection-end="2237" vertical-scroll-proportion="0.0" vertical-offset="657" max-vertical-offset="17314">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
             <state line="52" column="5" selection-start="2237" selection-end="2237" vertical-scroll-proportion="0.0" vertical-offset="657" max-vertical-offset="17314">
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
@@ -51,6 +55,7 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
             <state line="989" column="43" selection-start="19782" selection-end="19782" vertical-scroll-proportion="0.0">
 =======
             <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
@@ -61,11 +66,15 @@
 =======
             <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+            <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
@@ -76,11 +85,16 @@
 =======
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
       <file leaf-file-name="paint.js" pinned="false" current="true" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/paint.js">
           <provider selected="true" editor-type-id="text-editor">
             <state line="211" column="12" selection-start="5729" selection-end="5949" vertical-scroll-proportion="3.1217532" vertical-offset="2675" max-vertical-offset="6842">
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
@@ -89,6 +103,7 @@
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
       <file leaf-file-name="ps3.1.1.js" pinned="false" current="false" current-in-tab="false">
@@ -131,6 +146,12 @@
           <provider selected="true" editor-type-id="text-editor">
             <state line="44" column="25" selection-start="1597" selection-end="1597" vertical-scroll-proportion="0.0" vertical-offset="686" max-vertical-offset="6644">
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+      <file leaf-file-name="multi.js" pinned="false" current="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/multi.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state line="44" column="25" selection-start="1597" selection-end="1597" vertical-scroll-proportion="0.0" vertical-offset="686" max-vertical-offset="6644">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
@@ -155,8 +176,13 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         <option value="$PROJECT_DIR$/multi.js" />
         <option value="$PROJECT_DIR$/KS1.js" />
+=======
+        <option value="$PROJECT_DIR$/multi.html" />
+        <option value="$PROJECT_DIR$/multi.js" />
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
         <option value="$PROJECT_DIR$/multi.html" />
         <option value="$PROJECT_DIR$/multi.js" />
@@ -240,7 +266,11 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
   <component name="RunManager" selected="Node.js.KS1.js">
+=======
+  <component name="RunManager" selected="JavaScript Debug.multi.html">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
   <component name="RunManager" selected="JavaScript Debug.multi.html">
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
@@ -263,7 +293,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
@@ -316,10 +349,13 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     <list size="1">
       <item index="0" class="java.lang.String" itemvalue="Node.js.KS1.js" />
     </list>
 =======
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
@@ -467,7 +503,10 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
@@ -711,6 +750,46 @@
         </state>
       </provider>
     </entry>
+<<<<<<< HEAD
+    <entry file="file://$PROJECT_DIR$/multi.js">
+      <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
+        <state line="44" column="25" selection-start="1597" selection-end="1597" vertical-scroll-proportion="0.0" vertical-offset="686" max-vertical-offset="6644">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+        <state line="230" column="4" selection-start="8575" selection-end="8575" vertical-scroll-proportion="1.7777778" vertical-offset="3988" max-vertical-offset="21560">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+    <entry file="file://$PROJECT_DIR$/paint.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="6" column="57" selection-start="218" selection-end="218" vertical-scroll-proportion="-2.612903" vertical-offset="51" max-vertical-offset="858">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+          <folding />
+        </state>
+      </provider>
+    </entry>
+<<<<<<< HEAD
+<<<<<<< HEAD
+    <entry file="file://$PROJECT_DIR$/multi.html">
+      <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
+        <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
+=======
+        <state line="52" column="5" selection-start="2237" selection-end="2237" vertical-scroll-proportion="0.0" vertical-offset="657" max-vertical-offset="17314">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+    <entry file="file://$PROJECT_DIR$/ps3.1.1.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="968" column="0" selection-start="20480" selection-end="20480" vertical-scroll-proportion="33.65174" vertical-offset="982" max-vertical-offset="269236">
+=======
+    <entry file="file://$PROJECT_DIR$/aq1.0.3.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="986" column="46" selection-start="19668" selection-end="19672" vertical-scroll-proportion="-28.625208" vertical-offset="38931" max-vertical-offset="48400">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/multi.js">
       <provider selected="true" editor-type-id="text-editor">
 <<<<<<< HEAD
@@ -724,6 +803,12 @@
       </provider>
     </entry>
 <<<<<<< HEAD
+<<<<<<< HEAD
+    <entry file="file://$PROJECT_DIR$/paint.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="211" column="12" selection-start="5729" selection-end="5949" vertical-scroll-proportion="3.1217532" vertical-offset="2675" max-vertical-offset="6842">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
     <entry file="file://$PROJECT_DIR$/multi.html">
       <provider selected="true" editor-type-id="text-editor">
 <<<<<<< HEAD
