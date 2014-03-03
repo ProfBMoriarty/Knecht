@@ -70,6 +70,7 @@ function beHost()
     });
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 
     K.grantPermission("m_test", "caintoad@yahoo.com", "mult_test", function(response){
         if(response.result === K.OK){
@@ -100,13 +101,19 @@ function beHost()
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 }
 
 function beUser(){
     //swagfish
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     /*var to_read;
+=======
+    var to_read;
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
     var to_read;
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
@@ -127,9 +134,15 @@ function beUser(){
     to_read.send();
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     PS.statusText(text_to_read);*/
     position = "client";
     K.setAddress("http://localhost:8080");
+=======
+    PS.statusText(text_to_read);
+    position = "client";
+    K.setAddress(text_to_read + 8080);
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
     PS.statusText(text_to_read);
     position = "client";
@@ -148,6 +161,7 @@ function beUser(){
             PS.statusText("You are the client.");
         }
     });
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 
@@ -170,6 +184,8 @@ function beUser(){
             }
         });
     });
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
@@ -325,6 +341,7 @@ PS.keyDown = function( key, shift, ctrl, options ) {
     if(has_chosen){
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
         PS.glyph(user_x, user_y, " ");
         if(key == PS.KEY_ARROW_DOWN){
             if(user_y < 7){
@@ -354,12 +371,17 @@ PS.keyDown = function( key, shift, ctrl, options ) {
 =======
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
         if(key == PS.KEY_ARROW_DOWN){
         }
         if(key == PS.KEY_ARROW_UP){}
         if(key == PS.KEY_ARROW_LEFT){}
         if(key == PS.KEY_ARROW_RIGHT){}
 <<<<<<< HEAD
+<<<<<<< HEAD
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+=======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 =======
 >>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
