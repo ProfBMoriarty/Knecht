@@ -6,7 +6,7 @@ var port = 8080;
     var db_config = {
         host: "localhost",
         user: "root",
-        password:"",
+        password:"V3n3diggM",
         delay: 2000
     };
 

@@ -51,6 +51,7 @@ var PS; // Global namespace for public API
 	var _LOGIN_PW2_ID = "login_pw2";
 	var _LOGIN_BUT_ID = "login_but";
 	var _LOGIN_SIGNUP_ID = "login_su";
+	var _LOGIN_RECOVER_ID = "login_re";
 
 	// Element prefixes
 
@@ -122,6 +123,8 @@ var PS; // Global namespace for public API
 				rgb : 0xFFFFFF,
 				str : "rgba(255,255,255,1)"
 			},
+			padLeft : 0,
+			padRight : 0,
 			ready : false
 		},
 
@@ -224,15 +227,13 @@ var PS; // Global namespace for public API
 
 	var _RSTR, _GBSTR, _BASTR, _ASTR; // color strings
 
-	var _DEFAULTS; // working copy of _DEFAULTS
+//	var _DEFAULTS; // working copy of _DEFAULTS
 
 	var _main; // main DOM element
 	var _grid; // master grid object
 	var _beads; // master list of bead objects
 	var _status; // status line object
 	var _anyDirty = false; // dirty bead flag
-
-	var _net = null; // network object
 
 	// Image support
 
@@ -325,17 +326,6 @@ var PS; // Global namespace for public API
 		}
 
 		return type;
-	}
-
-	// _appendText ( text, element )
-	// Append [text] to DOM [element]
-
-	function _appendText ( text, element )
-	{
-		var e;
-
-		e = document.createTextNode( text );
-		element.appendChild( e );
 	}
 
 	// _isBoolean ( val )
@@ -470,8 +460,7 @@ var PS; // Global namespace for public API
 		{
 			event.cancelBubble = true;
 		}
-
-		event.returnValue = false;
+		event.preventDefault(); // prevents weirdness
 		return false;
 	}
 
@@ -512,11 +501,10 @@ var PS; // Global namespace for public API
 		top = bead.top;
 		width = size;
 		height = size;
+		border = bead.border;
 		radius = bead.radius;
 
-		// If bead is invisible, non-square or less than 100%, draw grid background
-
-		if ( !bead.visible || ( bead.size < size ) || ( radius > 0 ) )
+		if ( ( bead.size < size ) || ( radius > 0 ) || ( ( border.width > 0 ) && ( border.color.a < 255 ) ) || !bead.visible )
 		{
 			ctx.fillStyle = gridColor;
 			ctx.fillRect( left, top, width, height );
@@ -537,8 +525,6 @@ var PS; // Global namespace for public API
 		}
 
 		// Draw border if needed
-
-		border = bead.border;
 
 		if ( border.width > 0 ) // > 0 if any border is visible
 		{
@@ -972,7 +958,10 @@ var PS; // Global namespace for public API
 
 		_clockActive = false;
 
-		message = message.toString();
+		if ( ( typeof message !== "string" ) || ( message.length < 1 ) )
+		{
+			message = "???";
+		}
 
 		str = "ERROR: " + message + "\n";
 
@@ -2235,8 +2224,8 @@ var PS; // Global namespace for public API
 
 		canvas = _grid.canvas;
 
-		x += ( document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft );
-		y += ( document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop );
+		x += ( document.body.scrollLeft + document.documentElement.scrollLeft - canvas.offsetLeft - _grid.padLeft );
+		y += ( document.body.scrollTop + document.documentElement.scrollTop - canvas.offsetTop - _grid.padRight );
 
 //		PS.debug( "_getBead(): x = " + x + ", y = " + y + "\n" );
 
@@ -2409,14 +2398,12 @@ var PS; // Global namespace for public API
 
 //		PS.debug("_touchStart called\n");
 
-		event.preventDefault(); // prevents weirdness
-
-		// if a finger already down
+		// If a finger already down
 
 		if ( _currentFinger !== _CLEAR )
 		{
-			PS.debug( "Finger already down\n" );
-			return; // ignore
+//			PS.debug( "Finger already down\n" );
+			return _endEvent( event ); // ignore
 		}
 
 		touch = event.changedTouches[ 0 ];
@@ -2489,8 +2476,6 @@ var PS; // Global namespace for public API
 	function _touchMove ( event )
 	{
 		var len, i, touch, finger, xpos, ypos, bead, obead;
-
-		event.preventDefault(); // stops weirdness
 
 		len = event.changedTouches.length;
 
@@ -2609,11 +2594,8 @@ var PS; // Global namespace for public API
 
 		if ( _debugFocus )
 		{
-			event.returnValue = true;
 			return true;
 		}
-
-		event.preventDefault();
 
 		// Call PS.keyDown to report event
 
@@ -2739,11 +2721,8 @@ var PS; // Global namespace for public API
 
 		if ( _debugFocus )
 		{
-			event.returnValue = true;
 			return true;
 		}
-
-		event.preventDefault();
 
 		// Call PS.keyUp to report event
 
@@ -2847,7 +2826,6 @@ var PS; // Global namespace for public API
 
 		if ( !_overGrid )
 		{
-			event.returnValue = true;
 			return true;
 		}
 
@@ -2922,33 +2900,6 @@ var PS; // Global namespace for public API
 			document.addEventListener( "touchstart", _touchStart, false );
 			document.addEventListener( "touchend", _touchEnd, false );
 			document.addEventListener( "touchcancel", _touchEnd, false );
-		}
-	}
-
-	function _gridDeactivate ()
-	{
-		var grid;
-
-		grid = _grid.canvas;
-		grid.style.display = "none";
-
-		grid.removeEventListener( "mousedown", _mouseDown, false );
-		grid.removeEventListener( "mouseup", _mouseUp, false );
-		grid.removeEventListener( "mousemove", _mouseMove, false );
-		grid.removeEventListener( "mouseout", _gridOut, false );
-
-		document.removeEventListener( "keydown", _keyDown, false );
-		document.removeEventListener( "keyup", _keyUp, false );
-
-		window.removeEventListener( "DOMMouseScroll", _wheel, false ); // for Firefox
-		window.removeEventListener( "mousewheel", _wheel, false ); // for others
-
-		if ( _touchScreen )
-		{
-			document.removeEventListener( "touchmove", _touchMove, false );
-			document.removeEventListener( "touchstart", _touchStart, false );
-			document.removeEventListener( "touchend", _touchEnd, false );
-			document.removeEventListener( "touchcancel", _touchEnd, false );
 		}
 	}
 
@@ -3527,7 +3478,7 @@ var PS; // Global namespace for public API
 			type = _typeOf( val );
 			if ( ( type === "undefined" ) || ( val === null ) )
 			{
-				options.start = PS.CURRENT;
+				options.params = PS.CURRENT; // fixed in 3.1.1
 			}
 			else if ( type !== "array" )
 			{
@@ -3971,6 +3922,7 @@ var PS; // Global namespace for public API
 
 				current.str = colors.str = _RSTR[ r ] + _GBSTR[ g ] + _GBSTR[ b ] + _ASTR[ a ];
 
+
 				if ( bead.visible )
 				{
 					if ( fader.rate > 0 ) // must use fader
@@ -3993,13 +3945,6 @@ var PS; // Global namespace for public API
 						_makeDirty( bead );
 					}
 				}
-
-				// bead is invisible
-
-//				else
-//				{
-//					_borderRGBA( colors, bead.div );
-//				}
 
 				current.r = r;
 				current.g = g;
@@ -4026,7 +3971,7 @@ var PS; // Global namespace for public API
 			b = current.b;
 
 			current.str = _RSTR[ r ] + _GBSTR[ g ] + _GBSTR[ b ] + _ASTR[ alpha ];
-
+			PS.statusText("str = " + current.str);
 			if ( bead.visible )
 			{
 				fader = bead.borderFader;
@@ -4053,13 +3998,6 @@ var PS; // Global namespace for public API
 					_makeDirty( bead );
 				}
 			}
-
-			// bead is invisible
-
-//			else
-//			{
-//				_borderRGBA( current, bead.div );
-//			}
 
 			current.a = alpha;
 		}
@@ -4308,13 +4246,6 @@ var PS; // Global namespace for public API
 					}
 				}
 
-				// bead is invisible
-
-//				else
-//				{
-//					_glyphRGBA( colors, bead.glyph_p );
-//				}
-
 				current.r = r;
 				current.g = g;
 				current.b = b;
@@ -4360,13 +4291,6 @@ var PS; // Global namespace for public API
 					_makeDirty( bead );
 				}
 			}
-
-			// bead is invisible
-
-//			else
-//			{
-//				_glyphRGBA( current, bead.glyph_p );
-//			}
 
 			current.a = alpha;
 		}
@@ -6204,335 +6128,6 @@ var PS; // Global namespace for public API
 		return [x1, y1];
 	}
 
-	// NETWORKING
-
-	function Network ()
-	{
-		this._init();
-	}
-
-	Network.prototype = {
-
-		_signup : false, // true if in signup mode
-
-		_login : null, // login screen div
-		_email : null, // email input element
-		_pw1 : null, // pw1 input element
-		_pw2 : null, // pw2 input element
-		_button : null, // login/signup button element
-
-		_emailText : null, // email text, null if none
-		_pwText1 : null, // password 1 text, null if none
-		_pwText2 : null, // password 2 text, null if none
-
-		// _validMail ( str )
-		// Returns false if email string is obviously invalid, else true
-
-		_validMail : function ( str )
-		{
-			var len, i, j;
-
-			len = str.length;
-			if ( len > 5 ) // minimum reasonable length
-			{
-				i = str.indexOf( '@' );
-				if ( i > 0 ) // must have @ at or beyond 0
-				{
-					j = str.indexOf( '.' );
-					if ( j > i ) // . must come after @
-					{
-						return true;
-					}
-				}
-			}
-
-			return false;
-		},
-
-		// _validPW( str )
-		// Returns true if password string is valid, else false
-		// Must be at least 8 characters, a-z, A-Z, 0-9 or underscore
-
-		_validPW : function ( str )
-		{
-			var len, i, c;
-
-			len = str.length;
-			if ( len < 8 )
-			{
-				return false;
-			}
-
-			for ( i = 0; i < len; i += 1 )
-			{
-				c = str.charAt( i );
-				if( ( c !== '_' ) && /[^a-zA-Z0-9]/.test( c ) )
-				{
-					return false;
-				}
-			}
-			return true;
-		},
-
-		// _done()
-		// Called when login is complete
-
-		_done : function ()
-		{
-			_net._button.disabled = "disabled";
-			PS.statusColor( PS.COLOR_BLACK );
-			PS.statusText( "Logged in!" );
-		},
-
-		// _press ( event )
-		// Button mousedown event handler
-
-		_press : function ( event )
-		{
-			_net._button.removeEventListener( "mousedown", _net._press, false );
-			_net._done();
-			return _endEvent( event );
-		},
-
-		// _ready ()
-		// Called when email and password(s) are valid
-		// Button needs to be pressed
-
-		_ready : function ()
-		{
-			_net._button.disabled = false;
-			_net._button.addEventListener( "mousedown", _net._press, false );
-			_net._button.focus();
-			PS.statusColor( PS.COLOR_BLACK );
-			PS.statusText( "Press Login to continue" );
-		},
-
-		// _mailKeyDown ( event )
-		// Email input keydown handler
-
-		_mailKeyDown : function ( event )
-		{
-			var key, val;
-
-			if ( event.which )
-			{
-				key = event.which; // correct
-			}
-			else
-			{
-				key = event.keyCode; // IE
-			}
-			if ( ( key === PS.KEY_ENTER ) || ( key === PS.KEY_TAB ) )
-			{
-				val = _net._email.value;
-				if ( _net._validMail ( val ) )
-				{
-					_net._emailText = val;
-					if ( _net._pwText1 )
-					{
-						if ( key === PS.KEY_TAB )
-						{
-							_net._ready();
-						}
-						else
-						{
-							_net._done();
-						}
-					}
-					else
-					{
-						_net._pw1.value = "";
-						_net._pw1.focus();
-						PS.statusColor( PS.COLOR_BLACK );
-						PS.statusText( "Enter password" );
-					}
-				}
-				else
-				{
-					_net._emailText = null;
-					_net._email.value = "";
-					_net._email.focus();
-					PS.statusColor( PS.COLOR_RED );
-					PS.statusText( "Invalid email address" );
-					PS.audioPlay( "fx_uhoh" );
-				}
-				event.preventDefault();
-				return false;
-			}
-			return true; // must return true
-		},
-
-		// _pwKeyDown1 ( event )
-		// Password 1 input keydown handler
-
-		_pwKeyDown1 : function ( event )
-		{
-			var key, val;
-
-			if ( event.which )
-			{
-				key = event.which; // correct
-			}
-			else
-			{
-				key = event.keyCode; // IE
-			}
-			if ( ( key === PS.KEY_ENTER ) || ( key === PS.KEY_TAB ) )
-			{
-				val = _net._pw1.value;
-				if ( _net._validPW ( val ) )
-				{
-					_net._pwText1 = val;
-					if ( _net._emailText )
-					{
-						if ( key === PS.KEY_TAB )
-						{
-							_net._ready();
-						}
-						else
-						{
-							_net._done();
-						}
-					}
-					else
-					{
-						_net_email.value = "";
-						_net_email.focus();
-						PS.statusColor( PS.COLOR_BLACK );
-						PS.statusText( "Enter email address" );
-					}
-				}
-				else
-				{
-					_net._pwText1 = null;
-					_net._pw1.value = "";
-					_net._pw1.focus();
-					PS.statusColor( PS.COLOR_RED );
-					PS.statusText( "Invalid password" );
-					PS.audioPlay( "fx_uhoh" );
-				}
-				event.preventDefault();
-				return false;
-			}
-			return true; // must return true
-		},
-
-		_init : function ()
-		{
-			var newline, div, line, e;
-
-			newline = function ( str )
-			{
-				var p, span;
-
-				p = document.createElement( "p" );
-				span = document.createElement( "span" );
-				span.className = "label";
-				span.innerHTML = str + "&nbsp;";
-				p.appendChild( span );
-				return p;
-			};
-
-			// ****************
-			// CREATE LOGIN DIV
-			// ****************
-
-			div = document.createElement( "div" );
-			div.id = _LOGIN_ID;
-			div.style.display = "none";
-			this._login = div;
-
-			// Create server ID line
-
-			line = newline( "" );
-			_appendText( "Server: PS1", line );
-			div.appendChild( line );
-
-			// Create email entry line
-
-			line = newline( "Email:" );
-			e = document.createElement( "input" );
-			e.id = _LOGIN_EMAIL_ID;
-			e.type = "text";
-			e.className = "email";
-			e.tabindex = 0;
-			e.addEventListener( "keydown", this._mailKeyDown, false );
-			line.appendChild( e );
-			div.appendChild( line );
-			this._email = e;
-
-			// Create password 1 entry line
-
-			line = newline( "Password:" );
-			e = document.createElement( "input" );
-			e.id = _LOGIN_PW1_ID;
-			e.type = "password";
-			e.className = "pw";
-			e.tabindex = 1;
-			e.addEventListener( "keydown", this._pwKeyDown1, false );
-			line.appendChild( e );
-			div.appendChild( line );
-			this._pw1 = e;
-
-			// Create login/signup button line
-
-			line = newline( "" );
-			e = document.createElement( "button" );
-			e.id = _LOGIN_BUT_ID;
-			e.type = "button";
-			e.className = "go";
-			e.tabindex = 2;
-			e.innerHTML = "&nbsp;Login&nbsp;";
-			e.disabled = "disabled";
-			line.appendChild( e );
-			div.appendChild( line );
-			this._button = e;
-
-			// Create new account line
-
-			line = newline( "" );
-			line.style.margin = "0"; // closer spacing
-			e = document.createElement( "a" );
-			e.href = "#";
-			e.innerHTML = "Create new account";
-			e.tabindex = -1;
-			line.appendChild( e );
-			div.appendChild( line );
-
-			// Create recover password line
-
-			line = newline( "" );
-			line.style.margin = "0"; // closer spacing
-			e = document.createElement( "a" );
-			e.href = "#";
-			e.innerHTML = "Recover password";
-			e.tabindex = -1;
-			line.appendChild( e );
-			div.appendChild( line );
-
-			// Add login div to _main
-
-			_main.appendChild( div );
-		},
-
-		login : function ()
-		{
-			_gridDeactivate();
-
-			this._emailText = null;
-			this._pwText1 = null;
-			this._pwText2 = null;
-
-			this._login.style.display = "block";
-			this._pw1.value = ""; // clear pw
-			this._email.value = ""; // clear email
-			this._email.focus();
-
-			PS.statusText( "Player account login" );
-		}
-
-	};
-
 	//----------------------
 	// ENGINE INITIALIZATION
 	//----------------------
@@ -6594,6 +6189,11 @@ var PS; // Global namespace for public API
 			}
 			version = /msie \d+[.]\d+/.exec( ua )[0].split( ' ' )[ 1 ];
 		}
+		else if ( /trident/.test( ua ) ) // IE 11+ on Windows 8
+		{
+			browser = "Internet Explorer";
+			version = /rv\:\d+[.]\d+/.exec( ua )[0].split(':')[1];
+		}
 		else if ( /opera/.test( ua ) )
 		{
 			browser = "Opera";
@@ -6614,14 +6214,22 @@ var PS; // Global namespace for public API
 
 		if ( !version )
 		{
-			version = /version\/[\.\d]+/.exec( ua );
-			if ( version )
+			try
 			{
-				version = version[0].split( '/' )[ 1 ];
+				version = /version\/[\.\d]+/.exec( ua );
+				if ( version )
+				{
+					version = version[0].split( '/' )[ 1 ];
+				}
+				else
+				{
+					version = /opera\/[\.\d]+/.exec( ua )[0].split( '/' )[ 1 ];
+				}
 			}
-			else
+			catch( err )
 			{
-				version = /opera\/[\.\d]+/.exec( ua )[0].split( '/' )[ 1 ];
+				console.error( "Problem detecting browser: " + err.message );
+				version = "???";
 			}
 		}
 
@@ -6877,10 +6485,6 @@ var PS; // Global namespace for public API
 			status.id = _STATUS_ID;
 			_main.appendChild( status );
 
-			// Init network, appends UI divisions to _main
-
-			_net = new Network();
-
 			// Create grid canvas
 
 			grid = document.createElement( "canvas" );
@@ -7120,6 +6724,12 @@ var PS; // Global namespace for public API
 			// copy default properties
 
 			_copy( _DEFAULTS.grid, _grid );
+
+			// Calculate canvas padding for mouse offset (Mark Diehr)
+
+			var canvasStyle = window.getComputedStyle( _grid.canvas, null );
+			_grid.padLeft = parseInt(canvasStyle.getPropertyValue('padding-top').replace("px", ""), 10);
+			_grid.padRight = parseInt(canvasStyle.getPropertyValue('padding-left').replace("px", ""), 10);
 
 			// Set up master 32 x 32 bead array
 
@@ -9265,7 +8875,7 @@ var PS; // Global namespace for public API
 			repeat = _isBoolean( repeat_p, _keyRepeat, true, true );
 			if ( repeat === PS.ERROR )
 			{
-				return _error( fn, "repeat argument invalid" );
+				return _error( fn + "repeat argument invalid" );
 			}
 
 			// Verify init argument
@@ -9290,7 +8900,7 @@ var PS; // Global namespace for public API
 			}
 			else
 			{
-				return _error( fn, "init argument invalid" );
+				return _error( fn + "init argument invalid" );
 			}
 
 			// Verify delay argument
@@ -9315,7 +8925,7 @@ var PS; // Global namespace for public API
 			}
 			else
 			{
-				return _error( fn, "delay argument invalid" );
+				return _error( fn + "delay argument invalid" );
 			}
 
 			_keyRepeat = repeat;
@@ -11907,14 +11517,7 @@ var PS; // Global namespace for public API
 					}
 					else if ( type === "number" )
 					{
-						if ( val )
-						{
-							no_diagonals = false;
-						}
-						else
-						{
-							no_diagonals = true;
-						}
+						no_diagonals = ( val !== 0 );
 					}
 					else
 					{
@@ -11938,14 +11541,7 @@ var PS; // Global namespace for public API
 					}
 					else if ( type === "number" )
 					{
-						if ( val )
-						{
-							cut_corners = false;
-						}
-						else
-						{
-							cut_corners = true;
-						}
+						cut_corners = ( val !== 0 );
 					}
 					else
 					{
@@ -12172,15 +11768,6 @@ var PS; // Global namespace for public API
 
 			result = _pathNear( pm, x1, y1, x2, y2 );
 			return result;
-		},
-
-		//------------
-		// NETWORK API
-		//------------
-
-		netLogin : function ()
-		{
-			_net.login();
 		}
 	};
 }() );
