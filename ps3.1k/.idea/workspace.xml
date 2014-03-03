@@ -27,30 +27,46 @@
       <file leaf-file-name="KC1.js" pinned="false" current="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/KC1.js">
           <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
             <state line="317" column="34" selection-start="13593" selection-end="13593" vertical-scroll-proportion="0.0">
+=======
+            <state line="52" column="5" selection-start="2237" selection-end="2237" vertical-scroll-proportion="0.0" vertical-offset="657" max-vertical-offset="17314">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="aq1.0.3.js" pinned="false" current="false" current-in-tab="false">
-        <entry file="file://$PROJECT_DIR$/aq1.0.3.js">
+      <file leaf-file-name="multi.html" pinned="false" current="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/multi.html">
           <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
             <state line="989" column="43" selection-start="19782" selection-end="19782" vertical-scroll-proportion="0.0">
+=======
+            <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
       <file leaf-file-name="multi.js" pinned="false" current="true" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/multi.js">
           <provider selected="true" editor-type-id="text-editor">
             <state line="347" column="21" selection-start="11007" selection-end="11007" vertical-scroll-proportion="9.112754">
+=======
+      <file leaf-file-name="paint.js" pinned="false" current="true" current-in-tab="true">
+        <entry file="file://$PROJECT_DIR$/paint.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state line="211" column="12" selection-start="5729" selection-end="5949" vertical-scroll-proportion="3.1217532" vertical-offset="2675" max-vertical-offset="6842">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
         </entry>
       </file>
+<<<<<<< HEAD
       <file leaf-file-name="ps3.1.1.js" pinned="false" current="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/ps3.1.1.js">
           <provider selected="true" editor-type-id="text-editor">
@@ -64,6 +80,12 @@
         <entry file="file://$PROJECT_DIR$/KS1.js">
           <provider selected="true" editor-type-id="text-editor">
             <state line="8" column="18" selection-start="155" selection-end="155" vertical-scroll-proportion="0.0">
+=======
+      <file leaf-file-name="multi.js" pinned="false" current="false" current-in-tab="false">
+        <entry file="file://$PROJECT_DIR$/multi.js">
+          <provider selected="true" editor-type-id="text-editor">
+            <state line="44" column="25" selection-start="1597" selection-end="1597" vertical-scroll-proportion="0.0" vertical-offset="686" max-vertical-offset="6644">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
               <folding />
             </state>
           </provider>
@@ -85,8 +107,13 @@
         <option value="$PROJECT_DIR$/ps3.1.1.js" />
         <option value="$PROJECT_DIR$/paint.js" />
         <option value="$PROJECT_DIR$/KC1.js" />
+<<<<<<< HEAD
         <option value="$PROJECT_DIR$/multi.js" />
         <option value="$PROJECT_DIR$/KS1.js" />
+=======
+        <option value="$PROJECT_DIR$/multi.html" />
+        <option value="$PROJECT_DIR$/multi.js" />
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
       </list>
     </option>
   </component>
@@ -155,7 +182,11 @@
     <property name="options.searchVisible" value="true" />
     <property name="options.splitter.details.proportions" value="0.2" />
   </component>
+<<<<<<< HEAD
   <component name="RunManager" selected="Node.js.KS1.js">
+=======
+  <component name="RunManager" selected="JavaScript Debug.multi.html">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     <configuration default="false" name="game.html" type="JavascriptDebugType" factoryName="JavaScript Debug" singleton="true" temporary="true" uri="http://localhost:63342/ps3.1k/game.html">
       <RunnerSettings RunnerId="JavascriptDebugRunner" />
       <ConfigurationWrapper RunnerId="JavascriptDebugRunner" />
@@ -166,6 +197,30 @@
       <ConfigurationWrapper RunnerId="JavascriptDebugRunner" />
       <method />
     </configuration>
+<<<<<<< HEAD
+=======
+    <configuration default="false" name="multi.html" type="JavascriptDebugType" factoryName="JavaScript Debug" singleton="true" temporary="true" engineId="firefox" uri="http://localhost:63342/ps3.1k/multi.html">
+      <RunnerSettings RunnerId="JavascriptDebugRunner" />
+      <ConfigurationWrapper RunnerId="JavascriptDebugRunner" />
+      <method />
+    </configuration>
+    <configuration default="false" name="KS1.js" type="NodeJSConfigurationType" factoryName="Node.js" temporary="true" path-to-node="C:/Program Files/nodejs/node" path-to-js-file="KS1.js" working-dir="$PROJECT_DIR$">
+      <browser start="false" url="" with-js-debugger="false" />
+      <RunnerSettings RunnerId="NodeJS.run" />
+      <ConfigurationWrapper RunnerId="NodeJS.run" />
+      <method />
+    </configuration>
+    <configuration default="true" type="DartCommandLineRunConfigurationType" factoryName="Dart Command Line Application">
+      <option name="VMOptions" />
+      <option name="arguments" />
+      <option name="filePath" />
+      <option name="name" value="Dart" />
+      <option name="saveOutputToFile" value="false" />
+      <option name="showConsoleOnStdErr" value="false" />
+      <option name="showConsoleOnStdOut" value="false" />
+      <method />
+    </configuration>
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     <configuration default="true" type="DartUnitRunConfigurationType" factoryName="DartUnit">
       <option name="VMOptions" />
       <option name="arguments" />
@@ -189,9 +244,26 @@
       <ConfigurationWrapper RunnerId="NodeJS.run" />
       <method />
     </configuration>
+<<<<<<< HEAD
     <list size="1">
       <item index="0" class="java.lang.String" itemvalue="Node.js.KS1.js" />
     </list>
+=======
+    <list size="4">
+      <item index="0" class="java.lang.String" itemvalue="JavaScript Debug.game.html" />
+      <item index="1" class="java.lang.String" itemvalue="JavaScript Debug.paint.html" />
+      <item index="2" class="java.lang.String" itemvalue="JavaScript Debug.multi.html" />
+      <item index="3" class="java.lang.String" itemvalue="Node.js.KS1.js" />
+    </list>
+    <recent_temporary>
+      <list size="4">
+        <item index="0" class="java.lang.String" itemvalue="JavaScript Debug.multi.html" />
+        <item index="1" class="java.lang.String" itemvalue="Node.js.KS1.js" />
+        <item index="2" class="java.lang.String" itemvalue="JavaScript Debug.paint.html" />
+        <item index="3" class="java.lang.String" itemvalue="JavaScript Debug.game.html" />
+      </list>
+    </recent_temporary>
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
   </component>
   <component name="ShelveChangesManager" show_recycled="false" />
   <component name="SvnConfiguration" maxAnnotateRevisions="500" myUseAcceleration="nothing" myAutoUpdateAfterCommit="false" cleanupOnStartRun="false" SSL_PROTOCOLS="all">
@@ -306,10 +378,49 @@
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
-      <option name="time" value="17" />
+      <breakpoints>
+        <line-breakpoint enabled="true" type="javascript">
+          <url>file://$PROJECT_DIR$/KC1.js</url>
+          <line>39</line>
+          <option name="timeStamp" value="29" />
+        </line-breakpoint>
+      </breakpoints>
+      <option name="time" value="30" />
     </breakpoint-manager>
   </component>
   <component name="editorHistoryManager">
+<<<<<<< HEAD
+=======
+    <entry file="file://$PROJECT_DIR$/paint.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0" vertical-offset="0" max-vertical-offset="5038">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/KS1.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="497" column="13" selection-start="21950" selection-end="21950" vertical-scroll-proportion="0.0" vertical-offset="10934" max-vertical-offset="20768" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ps3.1.1.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="1061" column="13" selection-start="21928" selection-end="21928" vertical-scroll-proportion="0.0" vertical-offset="23342" max-vertical-offset="269324">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/game.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="63" column="0" selection-start="2368" selection-end="2368" vertical-scroll-proportion="0.0" vertical-offset="462" max-vertical-offset="4532" />
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/ps3.1.css">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0" vertical-offset="4250" max-vertical-offset="7392" />
+      </provider>
+    </entry>
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     <entry file="file://$PROJECT_DIR$/aq1.0.3.js">
       <provider selected="true" editor-type-id="text-editor">
         <state line="0" column="0" selection-start="0" selection-end="0" vertical-scroll-proportion="0.0" />
@@ -381,23 +492,72 @@
         <state line="6" column="57" selection-start="218" selection-end="218" vertical-scroll-proportion="0.033009708" />
       </provider>
     </entry>
+    <entry file="file://$PROJECT_DIR$/paint.html">
+      <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
+        <state line="989" column="43" selection-start="19782" selection-end="19782" vertical-scroll-proportion="0.0">
+=======
+        <state line="6" column="57" selection-start="218" selection-end="218" vertical-scroll-proportion="-2.612903" vertical-offset="51" max-vertical-offset="858">
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/aq1.0.3.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="989" column="43" selection-start="19782" selection-end="19782" vertical-scroll-proportion="0.0">
+        <state line="986" column="46" selection-start="19668" selection-end="19672" vertical-scroll-proportion="-28.625208" vertical-offset="38931" max-vertical-offset="48400">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/KS1.js">
       <provider selected="true" editor-type-id="text-editor">
+<<<<<<< HEAD
         <state line="8" column="18" selection-start="155" selection-end="155" vertical-scroll-proportion="0.0">
+=======
+        <state line="230" column="4" selection-start="8575" selection-end="8575" vertical-scroll-proportion="1.7777778" vertical-offset="3988" max-vertical-offset="21560">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
+          <folding />
+        </state>
+      </provider>
+    </entry>
+<<<<<<< HEAD
+    <entry file="file://$PROJECT_DIR$/multi.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="347" column="21" selection-start="11007" selection-end="11007" vertical-scroll-proportion="9.112754">
+=======
+    <entry file="file://$PROJECT_DIR$/ps3.1.1.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="968" column="0" selection-start="20480" selection-end="20480" vertical-scroll-proportion="33.65174" vertical-offset="982" max-vertical-offset="269236">
           <folding />
         </state>
       </provider>
     </entry>
     <entry file="file://$PROJECT_DIR$/multi.js">
       <provider selected="true" editor-type-id="text-editor">
-        <state line="347" column="21" selection-start="11007" selection-end="11007" vertical-scroll-proportion="9.112754">
+        <state line="44" column="25" selection-start="1597" selection-end="1597" vertical-scroll-proportion="0.0" vertical-offset="686" max-vertical-offset="6644">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/KC1.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="52" column="5" selection-start="2237" selection-end="2237" vertical-scroll-proportion="0.0" vertical-offset="657" max-vertical-offset="17314">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/multi.html">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="32" column="11" selection-start="1715" selection-end="1715" vertical-scroll-proportion="-22.709677" vertical-offset="0" max-vertical-offset="858">
+          <folding />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/paint.js">
+      <provider selected="true" editor-type-id="text-editor">
+        <state line="211" column="12" selection-start="5729" selection-end="5949" vertical-scroll-proportion="3.1217532" vertical-offset="2675" max-vertical-offset="6842">
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
           <folding />
         </state>
       </provider>

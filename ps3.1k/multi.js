@@ -68,6 +68,7 @@ function beHost()
             PS.statusText("Member Added");
         }
     });
+<<<<<<< HEAD
 
     K.grantPermission("m_test", "caintoad@yahoo.com", "mult_test", function(response){
         if(response.result === K.OK){
@@ -94,11 +95,17 @@ function beHost()
 
     user_x = 1;
     user_y = 3;
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 }
 
 function beUser(){
     //swagfish
+<<<<<<< HEAD
     /*var to_read;
+=======
+    var to_read;
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     var text_to_read;
     to_read = new XMLHttpRequest();
     to_read.onreadystatechange = function(){
@@ -111,9 +118,15 @@ function beUser(){
 
     to_read.open("GET", url.txt, true);
     to_read.send();
+<<<<<<< HEAD
     PS.statusText(text_to_read);*/
     position = "client";
     K.setAddress("http://localhost:8080");
+=======
+    PS.statusText(text_to_read);
+    position = "client";
+    K.setAddress(text_to_read + 8080);
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     K.setApplication("multi_test");
 
     K.register("caintoad@yahoo.com", "SWAGFISH", function(response){
@@ -122,6 +135,7 @@ function beUser(){
             PS.statusText("You are the client.");
         }
     });
+<<<<<<< HEAD
 
     user_x = 6;
     user_y = 3;
@@ -142,6 +156,8 @@ function beUser(){
             }
         });
     });
+=======
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
 }
 
 PS.init = function( system, options ) {
@@ -291,6 +307,7 @@ PS.keyDown = function( key, shift, ctrl, options ) {
 
 	// Add code here for when a key is pressed
     if(has_chosen){
+<<<<<<< HEAD
         PS.glyph(user_x, user_y, " ");
         if(key == PS.KEY_ARROW_DOWN){
             if(user_y < 7){
@@ -317,6 +334,13 @@ PS.keyDown = function( key, shift, ctrl, options ) {
             }
         }
         PS.glyph(user_x, user_y, "X");
+=======
+        if(key == PS.KEY_ARROW_DOWN){
+        }
+        if(key == PS.KEY_ARROW_UP){}
+        if(key == PS.KEY_ARROW_LEFT){}
+        if(key == PS.KEY_ARROW_RIGHT){}
+>>>>>>> 6cbd25890ba74ea7b4c82cb637488c894d012595
     }
 };
 

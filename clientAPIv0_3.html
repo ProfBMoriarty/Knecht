@@ -120,10 +120,10 @@
             <p>The required <b>email</b> parameter should correspond to an existing email address.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the given email is not yet in use.</p>
-            <p>response is K.INVALID if the given email is in use.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the given email is not yet in use.</p>
+            <p>result is K.INVALID if the given email is in use.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p class="subitem">Return value</p>
 
@@ -150,10 +150,10 @@
             <p>The required <b>password</b> parameter is a string that will be used to authorize users to use this account in the future.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the account was successfully created.</p>
-            <p>response is K.INVALID if the account could not be created because the given email was in use.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the account was successfully created.</p>
+            <p>result is K.INVALID if the account could not be created because the given email was in use.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p class="subitem">Return value</p>
 
@@ -181,11 +181,11 @@
                 Both strings are required.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the client is now logged in to the specified account.</p>
-            <p>response is K.UNAUTH if the given password is not correct.</p>
-            <p>response is K.INVALID if the given email is not an existing account.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the client is now logged in to the specified account.</p>
+            <p>result is K.UNAUTH if the given password is not correct.</p>
+            <p>result is K.INVALID if the given email is not an existing account.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p>login() returns nothing.  Upon completion of the ajax request, callback is called</p>
             <p></p>
@@ -209,10 +209,10 @@
             <p>The required <b>email</b> parameter must correspond to an existing account.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the email was successfully sent.</p>
-            <p>response is K.INVALID if the account does not exist.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the email was successfully sent.</p>
+            <p>result is K.INVALID if the account does not exist.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p class="subitem">Return value</p>
 
@@ -237,11 +237,11 @@
             <p>The required <b>password</b> parameter will be used to access the account in the future.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the email was successfully sent.</p>
-            <p>response is K.UNAUTH if the account could not be authorized.</p>
-            <p>response is K.INVALID if the account does not exist.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the email was successfully sent.</p>
+            <p>result is K.UNAUTH if the account could not be authorized.</p>
+            <p>result is K.INVALID if the account does not exist.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p class="subitem">Return value</p>
 
@@ -264,11 +264,11 @@
 
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the account was successfully deleted.</p>
-            <p>response is K.UNAUTH if the account could not be authorized.</p>
-            <p>response is K.INVALID if the account does not exist.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the account was successfully deleted.</p>
+            <p>result is K.UNAUTH if the account could not be authorized.</p>
+            <p>result is K.INVALID if the account does not exist.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
             <p class="subitem">Usage notes</p>
 
@@ -335,11 +335,11 @@
 			<p>The required <b>data</b> can be anything that the game can itself parse.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
-            <p>response is K.OK if the data was successfully posted.</p>
-            <p>response is K.UNAUTH if the account could not be authorized.</p>
-            <p>response is K.INVALID if the account does not exist.</p>
-            <p>response is K.ERROR the server could not be accessed or the response was corrupted.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
+            <p>result is K.OK if the data was successfully posted.</p>
+            <p>result is K.UNAUTH if the account could not be authorized.</p>
+            <p>result is K.INVALID if the account does not exist.</p>
+            <p>result is K.ERROR the server could not be accessed or the response was corrupted.</p>
 
 			<p class="subitem">Return value</p>
 
@@ -364,7 +364,7 @@
 			<p>The required <b>field</b> is a unique string used to identify the data.</p>
             <p>The required <b>callback</b> parameter must take an object.</p>
             <p>The object passed to callback has a member <b>timestamp</b> that is a number representing the time the response was sent in unix time.</p>
-            <p>The object passed to callback has a member <b>response</b> that is a response code.</p>
+            <p>The object passed to callback has a member <b>result</b> that is a response code.</p>
             <p>response is K.OK if the data was successfully retrieved.</p>
             <p>response is K.UNAUTH if the account could not be authorized.</p>
             <p>response is K.INVALID if the account does not exist.</p>
