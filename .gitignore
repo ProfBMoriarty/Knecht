@@ -213,5 +213,8 @@ pip-log.txt
 
 #Mr Developer
 .mr.developer.cfg
+<<<<<<< HEAD
 *.xml
+=======
+>>>>>>> Removed .idea files from repo
 ps3.1k/.idea/workspace.xml
