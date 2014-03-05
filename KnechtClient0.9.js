@@ -51,6 +51,28 @@ var K = {};
         }
         return true;
     }
+
+    function _autoRelog(status, result, fp, fn, args, callback)
+    {
+        if(K.responses[status] === K.UNAUTHORIZED)
+        {
+            K.login(_username, _password, function(login_result)
+            {
+                if(login_result.status === K.OK) fp(args[0], args[1], args[2], args[3], args[4]);
+                else
+                {
+                    result['status'] = K.UNAUTHORIZED;
+                    callback(result);
+                }
+            });
+        }
+        else
+        {
+            result['status'] = K.responses[status];
+            callback(result);
+        }
+        if(result['error'] && _error_callback) _error_callback(fn, result['error']);
+    }
     //endregion
 
     //region Config Functions
@@ -135,32 +157,15 @@ var K = {};
      *        error: if present, a string specifying the error that occurred processing the request
      * If first call failed due to expired session_id, knecht will attempt to log in with stored details and try again
      */
-    K.unregister = function ( callback )
+    K.unregister = function(callback)
     {
-        _sendRequest( "DELETE",
-            "/users?session_id=" + _session_id,
-            function ( status, result )
-            {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.unregister( callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('unregister', result['error']);
-            } );
-    };
+        _sendRequest("DELETE",
+        "/users?session_id=" + _session_id,
+        function(status, result)
+        {
+            _autoRelog(status, result, K.unregister, 'unregister', [callback], callback);
+        });
+    }
     //endregion
 
     //region User Session API functions
@@ -182,7 +187,7 @@ var K = {};
             "/users/session?username=" + _username,
             function ( status, result )
             {
-                if ( K.responses[status] === K.OK ) _session_id = encodeURIComponent( result['body'] );
+                if ( K.responses[status] === K.OK ) _session_id = encodeURIComponent( result['session'] );
                 result['status'] = K.responses[status];
                 callback(result);
                 if(result['error'] && _error_callback) _error_callback('login', result['error']);
@@ -270,24 +275,7 @@ var K = {};
             "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.putData( field, data, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('putData', result['error']);
+                _autoRelog(status, result, K.putData, 'putData', [field, data, callback], callback);
             }, data );
     };
     /**
@@ -309,24 +297,7 @@ var K = {};
             "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.getData( field, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('getData', result['error']);
+                _autoRelog(status, result, K.getData, 'getData', [field, callback], callback);
             } );
     };
     /**
@@ -346,24 +317,7 @@ var K = {};
             "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK )K.deleteData( field, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('deleteData', result['error']);
+                _autoRelog(status, result, K.deleteData, 'deleteData', [field, callback], callback);
             } );
     };
     //endregion
@@ -386,24 +340,7 @@ var K = {};
             "&app=" + _app + "&group=" + encodeURIComponent( group ),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.startGroup( group, grouppass, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('startGroup', result['error']);
+                _autoRelog(status, result, K.startGroup, 'startGroup', [group, grouppass, callback], callback);
             }, grouppass );
     };
     /**
@@ -442,24 +379,7 @@ var K = {};
             "&group=" + encodeURIComponent( group ),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.closeGroup( group, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('closeGroup', result['error']);
+                _autoRelog(status, result, K.closeGroup, 'closeGroup', [group, callback], callback);
             } );
     };
     //endregion
@@ -508,24 +428,7 @@ var K = {};
             "&username=" + encodeURIComponent(username),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( result )
-                    {
-                        if ( result['status'] === K.OK ) K.addMember( group, username, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('addMember', result['error']);
+                _autoRelog(status, result, K.addMember, 'addMember', [group, username, callback], callback);
             } );
     };
     /**
@@ -567,24 +470,7 @@ var K = {};
             "&username=" + encodeURIComponent(username),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.removeMember( group, username, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('removeMember', result['error']);
+                _autoRelog(status, result, K.removeMember, 'removeMember', [group, username, callback], callback);
             } );
     };
     //endregion
@@ -615,27 +501,8 @@ var K = {};
           query_string,
           function ( status, result )
           {
-              if ( K.responses[status] === K.UNAUTHORIZED )
-              {
-                  K.login( _username, _password, function ( login_result )
-                  {
-                      if ( login_result['status'] === K.OK )
-                      {
-                          K.submitUpdates( group, fields, data, callback, permissions, members);
-                      }
-                      else
-                      {
-                          result['status'] = K.UNAUTHORIZED;
-                          callback(result);
-                      }
-                  } );
-              }
-              else
-              {
-                  result['status'] = K.responses[status];
-                  callback(result);
-              }
-              if(result['error'] && _error_callback) _error_callback('submitUpdates', result['error']);
+              _autoRelog(status, result, K.submitUpdates, 'submitUpdates',
+                  [group, fields, data, callback, permissions, members], callback);
           }, data);
     };
     /**
@@ -657,24 +524,7 @@ var K = {};
                 "&field=" + encodeURIComponent(JSON.stringify(fields)),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.getGroupData( group, fields, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('getGroupData', result['error']);
+                _autoRelog(status, result, K.getGroupData, 'getGroupData', [group, fields, callback], callback);
             } );
     };
     //endregion
@@ -703,24 +553,7 @@ var K = {};
             query_string,
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.setPermissions( group, fields, callback );
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('setPermissions', result['error']);
+                _autoRelog(status, result, K.setPermissions, 'setPermissions', [group, fields, callback, members], callback);
             } );
     };
     //endregion
@@ -807,7 +640,7 @@ var K = {};
                 {
                     result['status'] = K.responses[status];
                     callback(result);
-                    if(result['updates'] !== undefined) K.listenInputs(group, callback, result['timestamp']);
+                    if(result['inputs'] !== undefined) K.listenInputs(group, callback, result['timestamp']);
                 }
                 if(result['error'] && _error_callback) _error_callback('listenInputs', result['error']);
             } );
@@ -829,24 +662,7 @@ var K = {};
                 "&group=" + encodeURIComponent(group),
             function ( status, result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( login_result['status'] === K.OK ) K.submitInput( group, input, callback);
-                        else
-                        {
-                            result['status'] = K.UNAUTHORIZED;
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    result['status'] = K.responses[status];
-                    callback(result);
-                }
-                if(result['error'] && _error_callback) _error_callback('submitInput', result['error']);
+                _autoRelog(status, result, K.submitInput, 'submitInput', [group, input, callback], callback);
             }, input );
     };
     //endregion
