@@ -42,40 +42,48 @@ function beHost()
 {
     //swagfish
     position = "host";
-    K.setAddress("http://localhost:8080");
+    K.setAddress("http://localhost:8088");
     K.setApplication("multi_test");
 
     K.register( "caintoad@gmail.com", "SWAG", function( response )
     {
-        if ( response.result === K.OK )
+       if ( response.status === K.OK )
         {
             PS.statusText("You are the host.");
+
+            K.startGroup( "m_test", "YOLOSWAG", function( response )
+            {
+                if ( response.status === K.OK )
+                {
+                    PS.statusText("Group started");
+
+                    K.addMember ( "m_test", "caintoad@yahoo.com", function( response )
+                    {
+                        if ( response.status === K.OK )
+                        {
+                            PS.statusText("Member Added");
+
+                            K.setPermissions("m_test", "m_test", true, "mult_test", function(response){
+                                if(response.status === K.OK){
+                                    PS.statusText("Member given permissions")
+                                }
+                            }, "caintoad@yahoo.com");
+                        }
+                    });
+                }
+                else{
+                    PS.statusText("Group not started");
+                }
+            });
+        }
+        else{
+            PS.statusText("Unable to register");
         }
     });
 
-    K.startGroup( "m_test", "YOLOSWAG", function( response )
-    {
-        if ( response.result === K.OK )
-        {
-            PS.statusText("Group started");
-        }
-    });
 
-    K.addMember ( "m_test", "caintoad@yahoo.com", function( response )
-    {
-        if ( response.result === K.OK )
-        {
-            PS.statusText("Member Added");
-        }
-    });
 
-    K.grantPermission("m_test", "caintoad@yahoo.com", "mult_test", function(response){
-        if(response.result === K.OK){
-            PS.statusText("Member given permissions")
-        }
-    });
-
-    PS.timerStart(60, function(){
+    PS.timerStart(60000, function(){
         K.submitUpdate("m_test", "mult_test", {"X": user_x, "Y": user_y}, function(response){});
         K.listenInputs("m_test", function(result){
             var l = result.body;
