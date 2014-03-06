@@ -31,20 +31,20 @@ var K = {};
 
     //region Helper Functions
 
-	function _isJSON (string) //returns true if the given string can be parsed as JSON, otherwise false
-	{
-		try
-		{
-			JSON.parse(string);
-		}
-		catch (e)
-		{
-			return false;
-		}
-		return true;
-	}
+    function _isJSON (string) //returns true if the given string can be parsed as JSON, otherwise false
+    {
+        try
+        {
+            JSON.parse(string);
+        }
+        catch (e)
+        {
+            return false;
+        }
+        return true;
+    }
 
-	function _sendRequest ( method, path, callback, body ) //sends a request to the server and passes result to callback
+    function _sendRequest ( method, path, callback, body ) //sends a request to the server and passes result to callback
     {
         var request = new XMLHttpRequest();
         request.onreadystatechange = function ()
@@ -53,11 +53,11 @@ var K = {};
             {
                 if( _isJSON(request.responseText))
                 {
-	                callback( request.status, JSON.parse(request.responseText ));
+                    callback( request.status, JSON.parse(request.responseText ));
                 }
                 else
                 {
-	                callback(500,{error: 'Response Text Was Not JSON'});
+                    callback(500,{error: 'Response Text Was Not JSON'});
                 }
             }
         };
@@ -74,7 +74,7 @@ var K = {};
             {
                 if ( login_result.status === K.OK )
                 {
-	                fp(args[0], args[1], args[2], args[3], args[4]);
+                    fp(args[0], args[1], args[2], args[3], args[4]);
                 }
                 else
                 {
@@ -90,7 +90,7 @@ var K = {};
         }
         if ( result.error && _error_callback )
         {
-	        _error_callback(fn, result.error);
+            _error_callback(fn, result.error);
         }
     }
     //endregion
@@ -117,7 +117,7 @@ var K = {};
     {
         if ( typeof callback === 'function' )
         {
-	        _error_callback = callback;
+            _error_callback = callback;
         }
     };
     //endregion
@@ -143,7 +143,7 @@ var K = {};
                 callback( result );
                 if ( result.error && _error_callback )
                 {
-	                _error_callback( 'checkUserRegistered', result.error );
+                    _error_callback( 'checkUserRegistered', result.error );
                 }
             } );
     };
@@ -164,22 +164,22 @@ var K = {};
         _password = password;
         if ( !timeout )
         {
-	        timeout = 15;
+            timeout = 15;
         }
         _sendRequest( "POST",
             "/users?username=" + _username +
-            "&timeout=" + encodeURIComponent( timeout ),
+                "&timeout=" + encodeURIComponent( timeout ),
             function ( status, result )
             {
                 if ( K.responses[status] === K.OK )
                 {
-	                _session_id = encodeURIComponent( result.session );
+                    _session_id = encodeURIComponent( result.session );
                 }
                 result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback )
                 {
-	                _error_callback('register', result.error );
+                    _error_callback('register', result.error );
                 }
             }, _password );
     };
@@ -195,11 +195,11 @@ var K = {};
     K.unregister = function(callback)
     {
         _sendRequest("DELETE",
-        "/users?session_id=" + _session_id,
-        function(status, result)
-        {
-            _autoRelog(status, result, K.unregister, 'unregister', [callback], callback);
-        });
+            "/users?session_id=" + _session_id,
+            function(status, result)
+            {
+                _autoRelog(status, result, K.unregister, 'unregister', [callback], callback);
+            });
     };
 
     //endregion
@@ -225,13 +225,13 @@ var K = {};
             {
                 if ( K.responses[status] === K.OK )
                 {
-	                _session_id = encodeURIComponent( result.session );
+                    _session_id = encodeURIComponent( result.session );
                 }
                 result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback)
                 {
-	                _error_callback('login', result.error );
+                    _error_callback('login', result.error );
                 }
             }, _password );
     };
@@ -254,7 +254,7 @@ var K = {};
                 callback(result);
                 if( result.error && _error_callback)
                 {
-	                _error_callback('logout', result.error );
+                    _error_callback('logout', result.error );
                 }
             });
     };
@@ -271,7 +271,7 @@ var K = {};
                 callback(result);
                 if ( result.error && _error_callback )
                 {
-	                _error_callback('recoverPassword', result.error );
+                    _error_callback('recoverPassword', result.error );
                 }
             });
     };
@@ -288,7 +288,7 @@ var K = {};
                     {
                         if ( login_result.status === K.OK )
                         {
-	                        K.changePassword(new_password, callback );
+                            K.changePassword(new_password, callback );
                         }
                         else
                         {
@@ -305,7 +305,7 @@ var K = {};
                 }
                 if ( result.error && _error_callback)
                 {
-	                _error_callback('changePassword', result.error );
+                    _error_callback('changePassword', result.error );
                 }
             }, new_password );
     };
@@ -326,8 +326,8 @@ var K = {};
     {
         _sendRequest( "PUT",
             "/users/data?session_id=" + _session_id +
-            "&app=" + _app +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+                "&app=" + _app +
+                "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
                 _autoRelog(status, result, K.putData, 'putData', [field, data, callback], callback);
@@ -348,8 +348,8 @@ var K = {};
     {
         _sendRequest( "GET",
             "/users/data?session_id=" + _session_id +
-            "&app=" + _app +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+                "&app=" + _app +
+                "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
                 _autoRelog(status, result, K.getData, 'getData', [field, callback], callback);
@@ -368,8 +368,8 @@ var K = {};
     {
         _sendRequest( "DELETE",
             "/users/data?session_id=" + _session_id +
-            "&app=" + _app +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+                "&app=" + _app +
+                "&field=" + encodeURIComponent(JSON.stringify(field)),
             function ( status, result )
             {
                 _autoRelog(status, result, K.deleteData, 'deleteData', [field, callback], callback);
@@ -392,7 +392,7 @@ var K = {};
     {
         _sendRequest( "POST",
             "/groups?session_id=" + _session_id +
-            "&app=" + _app + "&group=" + encodeURIComponent( group ),
+                "&app=" + _app + "&group=" + encodeURIComponent( group ),
             function ( status, result )
             {
                 _autoRelog(status, result, K.startGroup, 'startGroup', [group, grouppass, callback], callback);
@@ -412,14 +412,14 @@ var K = {};
         _sendRequest( "GET",
             "/groups?app=" + _app,
             function (status, result)
-	        {
-	            result.status = K.responses[status];
-	            callback(result);
-	            if ( result.error && _error_callback )
-	            {
-		            _error_callback('listGroupsOfApp', result.error );
-	            }
-	        });
+            {
+                result.status = K.responses[status];
+                callback(result);
+                if ( result.error && _error_callback )
+                {
+                    _error_callback('listGroupsOfApp', result.error );
+                }
+            });
     };
 
     /**
@@ -435,7 +435,7 @@ var K = {};
     {
         _sendRequest( "DELETE",
             "/groups?session_id=" + _session_id +
-            "&group=" + encodeURIComponent( group ),
+                "&group=" + encodeURIComponent( group ),
             function ( status, result )
             {
                 _autoRelog(status, result, K.closeGroup, 'closeGroup', [group, callback], callback);
@@ -458,16 +458,16 @@ var K = {};
     K.checkGroupPassword = function (group, password, callback)
     {
         _sendRequest( "POST",
-        "/groups/password?group=" + encodeURIComponent(group),
-        function(status, result)
-        {
-            result.status = K.responses[status];
-            callback( result );
-            if( result.error && _error_callback)
+            "/groups/password?group=" + encodeURIComponent(group),
+            function(status, result)
             {
-	            _error_callback('checkGroupPassword', result.error );
-            }
-        }, password);
+                result.status = K.responses[status];
+                callback( result );
+                if( result.error && _error_callback)
+                {
+                    _error_callback('checkGroupPassword', result.error );
+                }
+            }, password);
     };
     //endregion
 
@@ -486,8 +486,8 @@ var K = {};
     {
         _sendRequest( "POST",
             "/groups/members?session_id=" + _session_id +
-            "&group=" + encodeURIComponent( group ) +
-            "&username=" + encodeURIComponent(username),
+                "&group=" + encodeURIComponent( group ) +
+                "&username=" + encodeURIComponent(username),
             function ( status, result )
             {
                 _autoRelog(status, result, K.addMember, 'addMember', [group, username, callback], callback);
@@ -508,14 +508,14 @@ var K = {};
     {
         _sendRequest( "GET", "/groups/members?group=" + encodeURIComponent( group ),
             function ( status, result )
-        {
-            result.status = K.responses[status];
-            callback(result);
-            if( result.error && _error_callback)
             {
-	            _error_callback('listMembersOfGroup', result.error );
-            }
-        } );
+                result.status = K.responses[status];
+                callback(result);
+                if( result.error && _error_callback)
+                {
+                    _error_callback('listMembersOfGroup', result.error );
+                }
+            } );
     };
     /**
      * Removes a user from the member list of a group you are host of
@@ -531,8 +531,8 @@ var K = {};
     {
         _sendRequest( "DELETE",
             "/groups/members?session_id=" + _session_id +
-            "&group=" + encodeURIComponent( group ) +
-            "&username=" + encodeURIComponent(username),
+                "&group=" + encodeURIComponent( group ) +
+                "&username=" + encodeURIComponent(username),
             function ( status, result )
             {
                 _autoRelog(status, result, K.removeMember, 'removeMember', [group, username, callback], callback);
@@ -562,19 +562,19 @@ var K = {};
             "&fields=" + encodeURIComponent(JSON.stringify(fields));
         if (permissions)
         {
-	        query_string += "&permissions=" + encodeURIComponent(JSON.stringify(permissions));
+            query_string += "&permissions=" + encodeURIComponent(JSON.stringify(permissions));
         }
         if (members)
         {
-	        query_string += "&members=" + encodeURIComponent(JSON.stringify(members));
+            query_string += "&members=" + encodeURIComponent(JSON.stringify(members));
         }
-      _sendRequest("PUT",
-          query_string,
-          function ( status, result )
-          {
-              _autoRelog(status, result, K.submitUpdates, 'submitUpdates',
-                  [group, fields, data, callback, permissions, members], callback);
-          }, data);
+        _sendRequest("PUT",
+            query_string,
+            function ( status, result )
+            {
+                _autoRelog(status, result, K.submitUpdates, 'submitUpdates',
+                    [group, fields, data, callback, permissions, members], callback);
+            }, data);
     };
     /**
      * Retrieves one or more shared data fields from the server
@@ -615,13 +615,13 @@ var K = {};
      */
     K.setPermissions = function(group, fields, permissions, callback, members)
     {
-        var query_string = "/groups/data?session_id=" + _session_id +
+        var query_string = "/groups/data/permissions?session_id=" + _session_id +
             "&group=" + encodeURIComponent(group) +
             "&fields=" + encodeURIComponent(JSON.stringify(fields)) +
             "&permissions=" + encodeURIComponent(JSON.stringify(permissions));
         if (members)
         {
-	        query_string += "&members=" + encodeURIComponent(JSON.stringify(members));
+            query_string += "&members=" + encodeURIComponent(JSON.stringify(members));
         }
         _sendRequest( "PUT",
             query_string,
@@ -649,7 +649,7 @@ var K = {};
     {
         if(!timestamp)
         {
-	        timestamp = 0;
+            timestamp = 0;
         }
         _sendRequest( "GET",
             "/groups/data?session_id=" + _session_id +
@@ -663,7 +663,7 @@ var K = {};
                     {
                         if ( login_result.status === K.OK )
                         {
-	                        K.listenUpdates( group, callback, timestamp );
+                            K.listenUpdates( group, callback, timestamp );
                         }
                         else
                         {
@@ -678,12 +678,12 @@ var K = {};
                     callback(result);
                     if ( result.updates !== undefined )
                     {
-	                    K.listenUpdates(group, callback, result.timestamp );
+                        K.listenUpdates(group, callback, result.timestamp );
                     }
                 }
                 if( result.error && _error_callback)
                 {
-	                _error_callback('listenUpdates', result.error );
+                    _error_callback('listenUpdates', result.error );
                 }
             } );
     };
@@ -705,7 +705,7 @@ var K = {};
     {
         if(!timestamp)
         {
-	        timestamp = 0;
+            timestamp = 0;
         }
         _sendRequest( "GET",
             "/groups/data?session_id=" + _session_id +
@@ -719,7 +719,7 @@ var K = {};
                     {
                         if ( login_result.status === K.OK )
                         {
-	                        K.listenInputs( group, callback, timestamp );
+                            K.listenInputs( group, callback, timestamp );
                         }
                         else
                         {
@@ -734,12 +734,12 @@ var K = {};
                     callback(result);
                     if( result.inputs !== undefined)
                     {
-	                    K.listenInputs(group, callback, result.timestamp );
+                        K.listenInputs(group, callback, result.timestamp );
                     }
                 }
                 if( result.error && _error_callback)
                 {
-	                _error_callback('listenInputs', result.error );
+                    _error_callback('listenInputs', result.error );
                 }
             } );
     };
