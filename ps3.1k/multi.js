@@ -41,8 +41,8 @@ var user_x, user_y;
 function beHost()
 {
     //swagfish
-    position = "host";
-    K.setAddress("http://localhost:8088");
+    /*position = "host";
+    K.setAddress("http://localhost:8080");
     K.setApplication("multi_test");
 
     K.register( "caintoad@gmail.com", "SWAG", function( response )
@@ -79,11 +79,11 @@ function beHost()
         else{
             PS.statusText("Unable to register");
         }
-    });
+    });*/
 
 
 
-    PS.timerStart(60000, function(){
+    PS.timerStart(60, function(){
         K.submitUpdate("m_test", "mult_test", {"X": user_x, "Y": user_y}, function(response){});
         K.listenInputs("m_test", function(result){
             var l = result.body;
@@ -106,7 +106,7 @@ function beHost()
 
 function beUser(){
     //swagfish
-    position = "client";
+    /*position = "client";
     K.setAddress("http://localhost:8080");
     K.setApplication("multi_test");
 
@@ -115,7 +115,7 @@ function beUser(){
         {
             PS.statusText("You are the client.");
         }
-    });
+    });*/
 
     user_x = 6;
     user_y = 3;
@@ -181,12 +181,61 @@ PS.touch = function( x, y, data, options ) {
     if( !has_chosen )
     {
         if(PS.color(x,y) == PS.COLOR_BLUE){
-            beHost();
+            //beHost();
+            position = "host";
+            K.setAddress("http://localhost:8080");
+            K.setApplication("multi_test");
+
+            K.register( "caintoad@gmail.com", "SWAG", function( response )
+            {
+                if ( response.status === K.OK )
+                {
+                    PS.statusText("You are the host.");
+
+                    K.startGroup( "m_test", "YOLOSWAG", function( response )
+                    {
+                        if ( response.status === K.OK )
+                        {
+                            PS.statusText("Group started");
+
+                            K.addMember ( "m_test", "caintoad@yahoo.com", function( response )
+                            {
+                                if ( response.status === K.OK )
+                                {
+                                    PS.statusText("Member Added");
+
+                                    K.setPermissions("m_test", "m_test", true, "mult_test", function(response){
+                                        if(response.status === K.OK){
+                                            PS.statusText("Member given permissions")
+                                        }
+                                    }, "caintoad@yahoo.com");
+                                }
+                            });
+                        }
+                        else{
+                            PS.statusText("Group not started");
+                        }
+                    });
+                }
+                else{
+                    PS.statusText("Unable to register");
+                }
+            });
         }
         if(PS.color(x,y) == PS.COLOR_RED){
-            beUser();
+            //beUser();
+            position = "client";
+            K.setAddress("http://localhost:8080");
+            K.setApplication("multi_test");
+
+            K.register("caintoad@yahoo.com", "SWAGFISH", function(response){
+                if( response.result === K.OK )
+                {
+                    PS.statusText("You are the client.");
+                }
+            });
         }
-        has_chosen = true;
+        //has_chosen = true;
 
         PS.color(PS.ALL,PS.ALL,PS.COLOR_WHITE);
         PS.color(3,PS.ALL,PS.COLOR_BLACK);
@@ -311,6 +360,18 @@ PS.keyDown = function( key, shift, ctrl, options ) {
             }
         }
         PS.glyph(user_x, user_y, "X");
+    }
+    else{
+        if(key == PS.KEY_ENTER){
+            if(position == "client"){
+                beUser();
+            }
+            else if(position == "host"){
+                beHost();
+            }
+
+            has_chosen = true;
+        }
     }
 };
 
