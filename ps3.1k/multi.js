@@ -84,7 +84,7 @@ function beHost()
 
 
     PS.timerStart(60, function(){
-        K.submitUpdate("m_test", "mult_test", {"X": user_x, "Y": user_y}, function(response){});
+        K.submitUpdates("m_test", "swag", {"X": user_x, "Y": user_y}, function(response){}, true, "caintoad@yahoo.com");
         K.listenInputs("m_test", function(result){
             var l = result.body;
             var i;
@@ -183,7 +183,7 @@ PS.touch = function( x, y, data, options ) {
         if(PS.color(x,y) == PS.COLOR_BLUE){
             //beHost();
             position = "host";
-            K.setAddress("http://localhost:8080");
+            K.setAddress("http://localhost:8088");
             K.setApplication("multi_test");
 
             K.register( "caintoad@gmail.com", "SWAG", function( response )
@@ -204,7 +204,7 @@ PS.touch = function( x, y, data, options ) {
                                 {
                                     PS.statusText("Member Added");
 
-                                    K.setPermissions("m_test", "m_test", true, "mult_test", function(response){
+                                    K.setPermissions("m_test", "swag", true, function(response){
                                         if(response.status === K.OK){
                                             PS.statusText("Member given permissions")
                                         }
@@ -225,11 +225,11 @@ PS.touch = function( x, y, data, options ) {
         if(PS.color(x,y) == PS.COLOR_RED){
             //beUser();
             position = "client";
-            K.setAddress("http://localhost:8080");
+            K.setAddress("http://localhost:8088");
             K.setApplication("multi_test");
 
             K.register("caintoad@yahoo.com", "SWAGFISH", function(response){
-                if( response.result === K.OK )
+                if( response.status === K.OK )
                 {
                     PS.statusText("You are the client.");
                 }
