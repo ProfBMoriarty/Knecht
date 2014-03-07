@@ -627,7 +627,7 @@
                     values += ",";
                 }
             }
-            connection.query("INSERT INTO user_data VALUES " + values + " ON DUPLICATE KEY UPDATE data = VALUES(data);",
+            connection.query("INSERT INTO user_data VALUES " + values + " ON DUPLICATE KEY UPDATE user_data SET data = VALUES(data);",
                 function(err)
                 {
                     if(err)
@@ -1167,34 +1167,36 @@
     //region Group Permissions functions
     function _insertPermissions(group, permitted_values, update_values, updated_members, response)
     {
-        connection.query("INSERT INTO permissions VALUES " + permitted_values +
-            " ON DUPLICATE KEY UPDATE field = field;", function(err)
-        {
-            if(err)
+        connection.query("INSERT INTO permissions VALUES " + permitted_values + " ON DUPLICATE KEY UPDATE field = field",
+            function(err)
             {
-                _finishResponse(ERROR, response, err_msg.db_err);
-            }
-            else
-            {
-                connection.query("INSERT INTO updates VALUES" + update_values +
-                    "ON DUPLICATE KEY UPDATE time = VALUES(time);", function(err)
+                if(err)
                 {
-                    if(err)
+                    console.log(err.toString());
+                    _finishResponse(ERROR, response, err_msg.db_err);
+                }
+                else
+                {
+                    connection.query("INSERT INTO updates VALUES" + update_values +
+                        "ON DUPLICATE KEY UPDATE time=VALUES(time);", function(err)
                     {
-                        _finishResponse(ERROR, response, err_msg.db_err);
-                    }
-                    else
-                    {
-                        var i;
-                        _finishResponse(OK, response);
-                        for (i = 0; i < updated_members.length; i += 1)
+                        if(err)
                         {
-                            _retrieveUpdates(updated_members[i], group, 0);
+                            console.log(err.toString());
+                            _finishResponse(ERROR, response, err_msg.db_err);
                         }
-                    }
-                });
-            }
-        });
+                        else
+                        {
+                            var i;
+                            _finishResponse(OK, response);
+                            for (i = 0; i < updated_members.length; i += 1)
+                            {
+                                _retrieveUpdates(updated_members[i], group, 0);
+                            }
+                        }
+                    });
+                }
+            });
     }
 
     function _setPermissions(session_id, group, field, members, permissions, response)
@@ -1250,7 +1252,7 @@
                     }
                 }
             }
-            if(typeof permissions === 'string') //a single permission for all fields
+            if(typeof permissions === 'boolean') //a single permission for all fields
             {
                 permissions_array = [];
                 for(i = 0; i < field.length; i += 1)
@@ -1273,9 +1275,9 @@
             else if(permissions instanceof Array && permissions.length === field.length)
             {
                 var array_of;
-                if(typeof permissions[0] === 'string')
+                if(typeof permissions[0] === 'boolean')
                 {
-                    array_of = 'string';
+                    array_of = 'boolean';
                 }
                 else if(permissions[0] instanceof Array)
                 {
@@ -1283,7 +1285,7 @@
                 }
                 for(i = 0; i < permissions.length; i += 1)
                 {
-                    if((array_of === 'string' && typeof permissions[i] !== 'string') ||
+                    if((array_of === 'boolean' && typeof permissions[i] !== 'string') ||
                         (array_of === 'array' && !(permissions[i] instanceof Array)))
                     {
                         _finishResponse(INVALID, response, err_msg.incorrect_args);
@@ -1301,7 +1303,7 @@
                         }
                     }
                 }
-                if(array_of === 'string') //a different permission set for each field
+                if(array_of === 'boolean') //a different permission set for each field
                 {
                     permissions_array = [];
                     for(i = 0; i < field.length; i += 1)
@@ -1335,7 +1337,7 @@
         }
         _checkCredentials(session_id, response, function(username)
         {
-            _checkHost(username, group, function(){
+            _checkHost(username, group, response, function(){
                 var permitted_values, forbidden_values, update_values, shared_fields, updated_members;
                 permitted_values = '';
                 forbidden_values = '';
@@ -1372,7 +1374,7 @@
                 }
                 if(forbidden_values)
                 {
-                    forbidden_values.slice(0, -2);
+                    forbidden_values = forbidden_values.slice(0, -2);
                     connection.query("DELETE FROM permissions WHERE group_name = ? AND ( " + forbidden_values + " );",
                         [group], function(err)
                         {
@@ -1382,8 +1384,8 @@
                             }
                             else if(permitted_values)
                             {
-                                permitted_values.slice(0, -1);
-                                update_values.slice(0, -1);
+                                permitted_values = permitted_values.slice(0, -1);
+                                update_values = update_values.slice(0, -1);
                                 _insertPermissions(group, permitted_values, update_values, updated_members, response);
                             }
                             else
@@ -1392,10 +1394,10 @@
                             }
                         });
                 }
-                else if(permitted_values !== '')
+                else if(permitted_values)
                 {
-                    permitted_values.slice(0, -1);
-                    update_values.slice(0, -1);
+                    permitted_values = permitted_values.slice(0, -1);
+                    update_values = update_values.slice(0, -1);
                     _insertPermissions(group, permitted_values, update_values, updated_members, response);
                 }
                 else
@@ -1938,8 +1940,8 @@
                 case "/groups/data/permissions":
                     switch(request.method){
                         case "PUT":
-                            _setPermissions(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.field,
-                                parsed_url.query.username, parsed_url.query.permission, response);
+                            _setPermissions(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.fields,
+                                parsed_url.query.username, parsed_url.query.permissions, response);
                             break;
                         case "OPTIONS":
                             _respondOptions('PUT, OPTIONS', response);
