@@ -1359,8 +1359,8 @@
                             }
                             shared_fields = "("
                                 + connection.escape(group) + ","
-                                + connection.escape(field[i]) + ","
-                                + connection.escape(members[j]);
+                                + connection.escape(members[j]) + ","
+                                + connection.escape(field[i]);
                             permitted_values += shared_fields + "),";
                             update_values += shared_fields + ',' + _getTime() + "),";
                         }
