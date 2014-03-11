@@ -40,32 +40,36 @@ var position;
 var user_x, user_y;
 function beHost(){
     //swagfish
-    position = "host";
+    /*position = "host";
     K.setAddress("localhost:8080");
     K.setApplication("multi_test");
 
     K.register("CainToad716@gmail.com", "SWAG", function(res){
         if(res.response === K.OK){
             PS.statusText("You are the host.");
-        }
-    });
 
-    K.startGroup("m_test", "YOLOSWAG", function(res){
-        if(res.response === K.OK){
-            PS.statusText("Group started");
-        }
-    });
+            K.startGroup("m_test", "YOLOSWAG", function(res){
+                if(res.response === K.OK){
+                    PS.statusText("Group started");
 
-    K.addMember("m_test", "CainToad716@yahoo.com", function(res){
-        if(res.response === K.OK){
-            PS.statusText("Member Added");
+                    K.addMember("m_test", "CainToad716@yahoo.com", function(res){
+                        if(res.response === K.OK){
+                            PS.statusText("Member Added");
+                        }
+                    });
+                }
+            });
         }
-    });
+    });*/
+
+
+
+
 }
 
 function beUser(){
     //swagfish
-    var to_read;
+    /*var to_read;
     var text_to_read;
     to_read = new XMLHttpRequest();
     to_read.onreadystatechange = function(){
@@ -79,15 +83,16 @@ function beUser(){
     to_read.open("GET", url.txt, true);
     to_read.send();
     PS.statusText(text_to_read);
-    position = "client";
-    K.setAddress(text_to_read + 8080);
+    position = "client";*/
+
+    /*K.setAddress("http://localhost:8080");
     K.setApplication("multi_test");
 
     K.register("CainToad716@yahoo.com", "SWAGFISH", function(res){
         if(res.response === K.OK){
             PS.statusText("You are the client.");
         }
-    });
+    });*/
 }
 
 PS.init = function( system, options ) {
@@ -128,10 +133,47 @@ PS.touch = function( x, y, data, options ) {
 	// Add code here for mouse clicks/touches over a bead
     if(!has_chosen){
         if(PS.color(x,y) == PS.COLOR_BLUE){
-            beHost();
+            //beHost();
+            position = "host";
+            K.setAddress("localhost:8088");
+            K.setApplication("multi_test");
+
+            K.register("CainToad716@gmail.com", "SWAG", function(res){
+                if(res.status === K.OK){
+                    PS.statusText("You are the host.");
+
+                    K.startGroup("m_test", "YOLOSWAG", function(res){
+                        if(res.status === K.OK){
+                            PS.statusText("Group started");
+
+                            K.addMember("m_test", "CainToad716@yahoo.com", function(res){
+                                if(res.status === K.OK){
+                                    PS.statusText("Member Added");
+
+                                    K.setPermissions("m_test", "area", true, function(response){
+                                        if(response.status === K.OK){
+                                            PS.statusText("Member granted permission");
+                                        }
+                                    }, "CainToad716@gmail.com");
+                                }
+                            });
+                        }
+                    });
+                }
+            });
         }
+
         if(PS.color(x,y) == PS.COLOR_RED){
-            beUser();
+            //beUser();
+            position = "user";
+            K.setAddress("http://localhost:8088");
+            K.setApplication("multi_test");
+
+            K.register("CainToad716@yahoo.com", "SWAGFISH", function(res){
+                if(res.status === K.OK){
+                    PS.statusText("You are the client.");
+                }
+            });
         }
         has_chosen = true;
 

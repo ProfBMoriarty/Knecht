@@ -84,18 +84,20 @@ function beHost()
 
 
     PS.timerStart(60, function(){
-        K.submitUpdates("m_test", "swag", {"X": user_x, "Y": user_y}, function(response){}, true, "caintoad@yahoo.com");
+        K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){}, true, "caintoad@yahoo.com");
         K.listenInputs("m_test", function(result){
-            var l = result.body;
-            var i;
-            var point;
-            for(i=0; i<l.length; i += 1){
-                point = (l[i]).input;
-                PS.glyph(5, PS.ALL, " ");
-                PS.glyph(6, PS.ALL, " ");
-                PS.glyph(7, PS.ALL, " ");
+            if (result.status === K.OK){
+                var l = result.body;
+                var i;
+                var point;
+                for(i=0; i<l.length; i += 1){
+                    point = (l[i]).input;
+                    PS.glyph(5, PS.ALL, " ");
+                    PS.glyph(6, PS.ALL, " ");
+                    PS.glyph(7, PS.ALL, " ");
 
-                PS.glyph(point.X, point.Y, "O");
+                    PS.glyph(point.X, point.Y, "O");
+                }
             }
         });
     });
@@ -123,17 +125,20 @@ function beUser(){
     PS.timerStart(60, function(){
         K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){});
         K.listenUpdates("m_test", function(result){
-            var l = result.body;
-            var i;
-            var point;
-            for(i=0; i<l.length; i += 1){
-                point = (l[i]).input;
-                PS.glyph(0, PS.ALL, " ");
-                PS.glyph(1, PS.ALL, " ");
-                PS.glyph(2, PS.ALL, " ");
+            if(result.status === K.OK){
+                var l = result.body;
+                var i;
+                var point;
+                for(i=0; i<l.length; i += 1){
+                    point = (l[i]).input;
+                    PS.glyph(0, PS.ALL, " ");
+                    PS.glyph(1, PS.ALL, " ");
+                    PS.glyph(2, PS.ALL, " ");
 
-                PS.glyph(point.X, point.Y, "O");
+                    PS.glyph(point.X, point.Y, "O");
+                }
             }
+
         });
     });
 }
@@ -204,7 +209,7 @@ PS.touch = function( x, y, data, options ) {
                                 {
                                     PS.statusText("Member Added");
 
-                                    K.setPermissions("m_test", "swag", true, function(response){
+                                    K.setPermissions("m_test", "area", true, function(response){
                                         if(response.status === K.OK){
                                             PS.statusText("Member given permissions")
                                         }
