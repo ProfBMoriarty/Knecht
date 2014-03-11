@@ -1465,7 +1465,7 @@
                     }
                 }
             }
-            if(typeof permissions === 'string') //a single permission for all fields
+            if(typeof permissions === 'boolean') //a single permission for all fields
             {
                 permissions_array = [];
                 for(i = 0; i < field.length; i += 1)
@@ -1490,7 +1490,7 @@
                 var array_of;
                 if(typeof permissions[0] === 'string')
                 {
-                    array_of = 'string';
+                    array_of = 'boolean';
                 }
                 else if(permissions[0] instanceof Array)
                 {
@@ -1498,7 +1498,7 @@
                 }
                 for(i = 0; i < permissions.length; i += 1)
                 {
-                    if((array_of === 'string' && typeof permissions[i]  !== 'string') ||
+                    if((array_of === 'boolean' && typeof permissions[i]  !== 'boolean') ||
                         (array_of === 'array' && !(permissions[i] instanceof Array)))
                     {
                         _finishResponse(INVALID, response, err_msg.incorrect_args);
@@ -1508,7 +1508,7 @@
                     {
                         for(j = 0; j < members.length; j += 1)
                         {
-                            if(typeof(permissions[i][j]) !== 'string')
+                            if(typeof(permissions[i][j]) !== 'boolean')
                             {
                                 _finishResponse(INVALID, response, err_msg.incorrect_args);
                                 return;
@@ -1516,7 +1516,7 @@
                         }
                     }
                 }
-                if(array_of === 'string') //a different permission set for each field
+                if(array_of === 'boolean') //a different permission set for each field
                 {
                     permissions_array = [];
                     for(i = 0; i < field.length; i += 1)
