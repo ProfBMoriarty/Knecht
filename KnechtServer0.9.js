@@ -1172,7 +1172,6 @@
             {
                 if(err)
                 {
-                    console.log(err.toString());
                     _finishResponse(ERROR, response, err_msg.db_err);
                 }
                 else
@@ -1182,7 +1181,6 @@
                     {
                         if(err)
                         {
-                            console.log(err.toString());
                             _finishResponse(ERROR, response, err_msg.db_err);
                         }
                         else
@@ -1488,7 +1486,7 @@
             else if(permissions instanceof Array && permissions.length === field.length)
             {
                 var array_of;
-                if(typeof permissions[0] === 'string')
+                if(typeof permissions[0] === 'boolean')
                 {
                     array_of = 'boolean';
                 }
@@ -1643,7 +1641,13 @@
                                         {
                                             if(permissions)
                                             {
-                                                _setPermissions(session_id, group, field, members, permissions, response);
+                                                _setPermissions(
+                                                    session_id,
+                                                    group,
+                                                    JSON.stringify(field),
+                                                    JSON.stringify(members),
+                                                    JSON.stringify(permissions),
+                                                    response);
                                             }
                                             else
                                             {
