@@ -1957,7 +1957,7 @@
                 case "/groups/updates":
                     switch(request.method){
                         case "GET":
-                            _listenUpdates(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.time, response);
+                            _listenUpdates(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, OPTIONS', response);
@@ -1972,7 +1972,7 @@
                             _submitInput(parsed_url.query.session_id, parsed_url.query.group, data, response);
                             break;
                         case "GET":
-                            _listenInputs(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.time, response);
+                            _listenInputs(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, POST, OPTIONS', response);
