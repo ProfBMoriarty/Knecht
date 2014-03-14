@@ -755,7 +755,7 @@ var K = {};
      */
     K.submitInput = function(group, input, callback)
     {
-        _sendRequest( "GET",
+        _sendRequest( "POST",
             "/groups/data?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group),
             function ( status, result )
