@@ -591,7 +591,7 @@
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field) || !_isJSON(data))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
@@ -603,7 +603,7 @@
         }
         else if(!(field instanceof Array) || !(data instanceof Array) || field.length !== data.length)
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
@@ -655,7 +655,7 @@
         }
         else if(!(field instanceof Array))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
@@ -665,7 +665,7 @@
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -697,7 +697,7 @@
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
@@ -707,7 +707,7 @@
         }
         else if(!(field instanceof Array))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response,function(username)
@@ -718,7 +718,7 @@
             {
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -1686,7 +1686,7 @@
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
