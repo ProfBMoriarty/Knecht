@@ -11,7 +11,7 @@
     {
         host: 'localhost',
         user: 'root',
-        password:'7Frog1ufo6',
+        password:'root',
         reconnect_delay: 2000,
         column_size: //Note: field size variables only apply if tables do not already exist in the database
         {
@@ -591,7 +591,7 @@
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field) || !_isJSON(data))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
@@ -603,7 +603,7 @@
         }
         else if(!(field instanceof Array) || !(data instanceof Array) || field.length !== data.length)
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
@@ -655,7 +655,7 @@
         }
         else if(!(field instanceof Array))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
@@ -665,7 +665,7 @@
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -697,7 +697,7 @@
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
@@ -707,7 +707,7 @@
         }
         else if(!(field instanceof Array))
         {
-            _finishResponse(INVALID, err_msg.incorrect_args);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response,function(username)
@@ -718,7 +718,7 @@
             {
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -1172,7 +1172,6 @@
             {
                 if(err)
                 {
-                    console.log(err.toString());
                     _finishResponse(ERROR, response, err_msg.db_err);
                 }
                 else
@@ -1182,7 +1181,6 @@
                     {
                         if(err)
                         {
-                            console.log(err.toString());
                             _finishResponse(ERROR, response, err_msg.db_err);
                         }
                         else
@@ -1465,7 +1463,7 @@
                     }
                 }
             }
-            if(typeof permissions === 'string') //a single permission for all fields
+            if(typeof permissions === 'boolean') //a single permission for all fields
             {
                 permissions_array = [];
                 for(i = 0; i < field.length; i += 1)
@@ -1488,9 +1486,9 @@
             else if(permissions instanceof Array && permissions.length === field.length)
             {
                 var array_of;
-                if(typeof permissions[0] === 'string')
+                if(typeof permissions[0] === 'boolean')
                 {
-                    array_of = 'string';
+                    array_of = 'boolean';
                 }
                 else if(permissions[0] instanceof Array)
                 {
@@ -1498,7 +1496,7 @@
                 }
                 for(i = 0; i < permissions.length; i += 1)
                 {
-                    if((array_of === 'string' && typeof permissions[i]  !== 'string') ||
+                    if((array_of === 'boolean' && typeof permissions[i]  !== 'boolean') ||
                         (array_of === 'array' && !(permissions[i] instanceof Array)))
                     {
                         _finishResponse(INVALID, response, err_msg.incorrect_args);
@@ -1508,7 +1506,7 @@
                     {
                         for(j = 0; j < members.length; j += 1)
                         {
-                            if(typeof(permissions[i][j]) !== 'string')
+                            if(typeof(permissions[i][j]) !== 'boolean')
                             {
                                 _finishResponse(INVALID, response, err_msg.incorrect_args);
                                 return;
@@ -1516,7 +1514,7 @@
                         }
                     }
                 }
-                if(array_of === 'string') //a different permission set for each field
+                if(array_of === 'boolean') //a different permission set for each field
                 {
                     permissions_array = [];
                     for(i = 0; i < field.length; i += 1)
@@ -1643,7 +1641,13 @@
                                         {
                                             if(permissions)
                                             {
-                                                _setPermissions(session_id, group, field, members, permissions, response);
+                                                _setPermissions(
+                                                    session_id,
+                                                    group,
+                                                    JSON.stringify(field),
+                                                    JSON.stringify(members),
+                                                    JSON.stringify(permissions),
+                                                    response);
                                             }
                                             else
                                             {
@@ -1682,7 +1686,7 @@
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
                 {
-                    _finishResponse(INVALID, err_msg.incorrect_args);
+                    _finishResponse(INVALID, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -1953,7 +1957,7 @@
                 case "/groups/updates":
                     switch(request.method){
                         case "GET":
-                            _listenUpdates(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.time, response);
+                            _listenUpdates(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, OPTIONS', response);
@@ -1968,7 +1972,7 @@
                             _submitInput(parsed_url.query.session_id, parsed_url.query.group, data, response);
                             break;
                         case "GET":
-                            _listenInputs(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.time, response);
+                            _listenInputs(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, POST, OPTIONS', response);

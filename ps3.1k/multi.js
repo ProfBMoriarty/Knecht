@@ -84,8 +84,15 @@ function beHost()
 
 
     PS.timerStart(60, function(){
-        K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){}, true, "caintoad@yahoo.com");
+        K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){
+            if(response.status != K.OK){
+                PS.statusText(response.status);
+            }
+        }, true, "caintoad@yahoo.com");
         K.listenInputs("m_test", function(result){
+            if(response.status != K.OK){
+                PS.statusText(result.status);
+            }
             if (result.status === K.OK){
                 var l = result.body;
                 var i;
@@ -123,8 +130,15 @@ function beUser(){
     user_y = 3;
 
     PS.timerStart(60, function(){
-        K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){});
+        K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
+            /*if(response.status != K.OK){
+                PS.statusText(response.status);
+            }*/
+        });
         K.listenUpdates("m_test", function(result){
+            if(result.status != K.OK){
+                PS.statusText(result.status);
+            }
             if(result.status === K.OK){
                 var l = result.body;
                 var i;

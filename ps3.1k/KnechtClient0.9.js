@@ -652,7 +652,7 @@ var K = {};
             timestamp = 0;
         }
         _sendRequest( "GET",
-            "/groups/data?session_id=" + _session_id +
+            "/groups/updates?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
                 "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
             function ( status, result )
@@ -708,7 +708,7 @@ var K = {};
             timestamp = 0;
         }
         _sendRequest( "GET",
-            "/groups/data?session_id=" + _session_id +
+            "/groups/input?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
                 "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
             function ( status, result )
@@ -755,8 +755,8 @@ var K = {};
      */
     K.submitInput = function(group, input, callback)
     {
-        _sendRequest( "GET",
-            "/groups/data?session_id=" + _session_id +
+        _sendRequest( "POST",
+            "/groups/input?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group),
             function ( status, result )
             {

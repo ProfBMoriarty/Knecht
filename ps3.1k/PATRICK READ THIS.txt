@@ -1,0 +1,9 @@
+the test for multiplayer is multi.html
+
+open up two instances of it.
+
+first click on the red side and wait until "you are the client" appears
+
+In the other instance click on the blue side and wait until "you are the host" appears
+
+In the one that says "Host" press enter, that is the one that runs submitUpdates (pressing enter for the "client" instance runs submit inputs).
