@@ -1626,7 +1626,7 @@
                                                     {
                                                         for(i = 0; i < updated_members.length; i += 1)
                                                         {
-                                                            _retrieveUpdates(group, 0);
+                                                            _retrieveUpdates(updated_members[i], group, 0);
                                                         }
                                                         if(permissions)
                                                         {
