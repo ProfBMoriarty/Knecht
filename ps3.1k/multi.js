@@ -83,33 +83,32 @@ function beHost()
 
 
 
-    PS.timerStart(4, function(){
+    PS.timerStart(6, function(){
         /*K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){
             if(response.status != K.OK){
                 PS.statusText(response.status);
             }
         }, true, "caintoad@yahoo.com");*/
         K.listenInputs("m_test", function(result){
-            if(result.status != K.OK){
+            var users, player, len, i, data, name, point;
+	        if(result.status !== K.OK){
                 PS.statusText(result.status);
             }
-            if (result.status === K.OK){
-                var l = result.body;
-                var i;
-                var point;
-                for(i=0; i<l.length; i += 1){
-                    point = (l[i]).input;
-                    PS.glyph(5, PS.ALL, " ");
-                    PS.glyph(6, PS.ALL, " ");
-                    PS.glyph(7, PS.ALL, " ");
-
-                    PS.glyph(point.X, point.Y, "O");
-                }
+            else {
+                users = result.updates;
+		        len = users.length;
+		        for ( i = 0; i < len; i += 1 )
+		        {
+			        player = users[ i ];
+			        if ( player.user === "caintoad@yahoo.com" )
+			        {
+				        data = player.input; // this needs to be parsed by JSON!
+				        PS.glyph(data.X, data.Y, "O");
+			        }
+		        }
             }
         });
     });
-
-
 }
 
 function beUser(){
@@ -150,28 +149,39 @@ function beUser(){
 
     });*/
 
-    PS.timerStart(4, function(){
+    PS.timerStart(6, function(){
         /*K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
             if(response.status != K.OK){
                 PS.statusText(response.status);
             }
         });*/
         K.listenUpdates("m_test", function(result){
-            if(result.status != K.OK){
+            var l, i, point;
+	        if ( result.status !== K.OK )
+	        {
                 PS.statusText(result.status);
             }
-            if(result.status === K.OK){
-                var l = result.body;
-                var i;
-                var point;
-                for(i=0; i<l.length; i += 1){
-                    point = (l[i]).input;
-                    PS.glyph(0, PS.ALL, " ");
-                    PS.glyph(1, PS.ALL, " ");
-                    PS.glyph(2, PS.ALL, " ");
+            else
+	        {
+                l = result.body;
+		        if ( l )
+		        {
+		            point = l.updates;
+			        if ( point )
+			        {
+		                PS.glyph(point.X, point.Y, "O");
+			        }
+		            /*
+	                for( i = 0; i < l.length; i += 1 ){
+	                    point = (l[i]).input;
+	                    PS.glyph(0, PS.ALL, " ");
+	                    PS.glyph(1, PS.ALL, " ");
+	                    PS.glyph(2, PS.ALL, " ");
 
-                    PS.glyph(point.X, point.Y, "O");
-                }
+	                    PS.glyph(point.X, point.Y, "O");
+	                }
+	                */
+		        }
             }
 
         });

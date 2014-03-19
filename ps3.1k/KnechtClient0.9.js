@@ -703,7 +703,8 @@ var K = {};
      */
     K.listenInputs = function(group, callback, timestamp)
     {
-        if(!timestamp)
+        var len, i, users, player, input;
+	    if(!timestamp)
         {
             timestamp = 0;
         }
@@ -731,8 +732,17 @@ var K = {};
                 else
                 {
                     result.status = K.responses[status];
+	                // Must parse player data!
+
+	                users = result.updates;
+	                len = users.length;
+	                for ( i = 0; i < len; i += 1 )
+	                {
+		                player = users[i];
+		                player.input = JSON.parse(player.input);
+	                }
                     callback(result);
-                    if(result = K.OK && result.inputs !== undefined)
+                    if ( ( result = K.OK ) && ( result.inputs !== undefined ) )
                     {
                         K.listenInputs(group, callback, result.timestamp );
                     }
