@@ -11,7 +11,7 @@
     {
         host: 'localhost',
         user: 'root',
-        password:'root',
+        password:'',
         reconnect_delay: 2000,
         column_size: //Note: field size variables only apply if tables do not already exist in the database
         {
@@ -1026,6 +1026,7 @@
 
     //region Groups Updates functions
     function _retrieveUpdates(username, group, timestamp){
+        if(!hooks[group][username]) return;
         connection.query("SELECT field FROM updates WHERE group_name = ? AND user = ?",
             [group, username],
             function(err, updates){
@@ -1060,7 +1061,7 @@
     }
 
     function _listenUpdates(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'number')
+        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'string')
         {
             _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
@@ -1093,6 +1094,7 @@
             [group],
             function(err, host)
             {
+                if(!hooks[group][host[0].host]) return;
                 connection.query("SELECT user, input, time FROM inputs WHERE group_name = ?",
                     [group],
                     function(err, input)
@@ -1128,9 +1130,9 @@
     }
 
     function _listenInputs(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'number')
+        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'string')
         {
-            _finishResponse(INVALID, response, err_msg.db_err);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
@@ -1144,7 +1146,7 @@
     function _submitInput(session_id, group, input, response){
         if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(input))
         {
-            _finishResponse(INVALID, response, err_msg.db_err);
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
@@ -1153,7 +1155,7 @@
                 function(err){
                     if(err)
                     {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                        _finishResponse(ERROR, response, err_msg.incorrect_args);
                     }
                     else {
                         _finishResponse(OK, response);
@@ -1624,11 +1626,17 @@
                                                     {
                                                         for(i = 0; i < updated_members.length; i += 1)
                                                         {
-                                                            _retrieveUpdates(group, 0);
+                                                            _retrieveUpdates(updated_members[i], group, 0);
                                                         }
                                                         if(permissions)
                                                         {
-                                                            _setPermissions(session_id, group, field, members, permissions, response);
+                                                            _setPermissions(
+                                                                session_id,
+                                                                group,
+                                                                JSON.stringify(field),
+                                                                JSON.stringify(members),
+                                                                JSON.stringify(permissions),
+                                                                response);
                                                         }
                                                         else
                                                         {

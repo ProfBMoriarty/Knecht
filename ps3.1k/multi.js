@@ -83,14 +83,14 @@ function beHost()
 
 
 
-    PS.timerStart(60, function(){
-        K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){
+    PS.timerStart(4, function(){
+        /*K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){
             if(response.status != K.OK){
                 PS.statusText(response.status);
             }
-        }, true, "caintoad@yahoo.com");
+        }, true, "caintoad@yahoo.com");*/
         K.listenInputs("m_test", function(result){
-            if(response.status != K.OK){
+            if(result.status != K.OK){
                 PS.statusText(result.status);
             }
             if (result.status === K.OK){
@@ -109,8 +109,7 @@ function beHost()
         });
     });
 
-    user_x = 1;
-    user_y = 3;
+
 }
 
 function beUser(){
@@ -126,15 +125,37 @@ function beUser(){
         }
     });*/
 
-    user_x = 6;
-    user_y = 3;
+    /*K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
+        /*if(response.status != K.OK){
+         PS.statusText(response.status);
+         }
+    });
+    K.listenUpdates("m_test", function(result){
+        if(result.status != K.OK){
+            PS.statusText(result.status);
+        }
+        if(result.status === K.OK){
+            var l = result.body;
+            var i;
+            var point;
+            for(i=0; i<l.length; i += 1){
+                point = (l[i]).input;
+                PS.glyph(0, PS.ALL, " ");
+                PS.glyph(1, PS.ALL, " ");
+                PS.glyph(2, PS.ALL, " ");
 
-    PS.timerStart(60, function(){
-        K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
-            /*if(response.status != K.OK){
+                PS.glyph(point.X, point.Y, "O");
+            }
+        }
+
+    });*/
+
+    PS.timerStart(4, function(){
+        /*K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
+            if(response.status != K.OK){
                 PS.statusText(response.status);
-            }*/
-        });
+            }
+        });*/
         K.listenUpdates("m_test", function(result){
             if(result.status != K.OK){
                 PS.statusText(result.status);
@@ -379,13 +400,32 @@ PS.keyDown = function( key, shift, ctrl, options ) {
             }
         }
         PS.glyph(user_x, user_y, "X");
+
+        if(position == "host"){
+            K.submitUpdates("m_test", "area", {"X": user_x, "Y": user_y}, function(response){
+                if(response.status != K.OK){
+                    PS.statusText(response.status);
+                }
+            }, true, "caintoad@yahoo.com");
+        }
+        else{
+            K.submitInput("m_test", {"X": user_x, "Y": user_y}, function(response){
+                if(response.status != K.OK){
+                    PS.statusText(response.status);
+                }
+            });
+        }
     }
     else{
         if(key == PS.KEY_ENTER){
             if(position == "client"){
+                user_x = 6;
+                user_y = 3;
                 beUser();
             }
             else if(position == "host"){
+                user_x = 1;
+                user_y = 3;
                 beHost();
             }
 
