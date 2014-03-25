@@ -103,6 +103,9 @@ function beHost()
 			        if ( player.user === "caintoad@yahoo.com" )
 			        {
 				        data = player.input; // this needs to be parsed by JSON!
+                        PS.glyph(5, PS.ALL, " ");
+                        PS.glyph(6, PS.ALL, " ");
+                        PS.glyph(7, PS.ALL, " ");
 				        PS.glyph(data.X, data.Y, "O");
 			        }
 		        }
@@ -156,21 +159,23 @@ function beUser(){
             }
         });*/
         K.listenUpdates("m_test", function(result){
-            var l, i, point;
+            var l, i;
 	        if ( result.status !== K.OK )
 	        {
                 PS.statusText(result.status);
             }
             else
 	        {
-                l = result.body;
+                l = result.updates[0];
 		        if ( l )
 		        {
-		            point = l.updates;
-			        if ( point )
-			        {
-		                PS.glyph(point.X, point.Y, "O");
-			        }
+                    K.getGroupData("m_test", l, function(response){
+                        var point = response.data.area;
+                        PS.glyph(0, PS.ALL, " ");
+                        PS.glyph(1, PS.ALL, " ");
+                        PS.glyph(2, PS.ALL, " ");
+                        PS.glyph(point.X, point.Y, "O");
+                    });
 		            /*
 	                for( i = 0; i < l.length; i += 1 ){
 	                    point = (l[i]).input;
