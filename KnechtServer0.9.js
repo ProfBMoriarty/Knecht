@@ -100,7 +100,7 @@
                     'password VARCHAR (' + db_config.column_size.password + '),' +
                     'timeout INTEGER,' +
                     'session_id VARCHAR (' + db_config.column_size.session_id + '),' +
-                    'last_ping VARCHAR (' + db_config.column_size.timestamp + '),' +
+                    'last_ping NUMERIC (' + db_config.column_size.timestamp + '),' +
                     'PRIMARY KEY (username));',
                     function(err)
                     {
@@ -169,7 +169,7 @@
                                     'group_name VARCHAR (' + db_config.column_size.group + '),' +
                                     'user VARCHAR (' + db_config.column_size.username + '),' +
                                     'field VARCHAR (' + db_config.column_size.field + '),' +
-                                    'time VARCHAR (' + db_config.column_size.timestamp + '),' +
+                                    'time NUMERIC (' + db_config.column_size.timestamp + '),' +
                                     'PRIMARY KEY (group_name, user, field),' +
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
@@ -186,7 +186,7 @@
                                     'group_name VARCHAR (' + db_config.column_size.group + '),' +
                                     'user VARCHAR (' + db_config.column_size.username + '),' +
                                     'input TEXT (' + db_config.column_size.input + '),' +
-                                    'time VARCHAR (' + db_config.column_size.timestamp + '),' +
+                                    'time NUMERIC (' + db_config.column_size.timestamp + '),' +
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
                                     'FOREIGN KEY (group_name) REFERENCES groups(name)' +
@@ -1026,7 +1026,10 @@
 
     //region Groups Updates functions
     function _retrieveUpdates(username, group, timestamp){
-        if(!hooks[group][username]) return;
+        if(!hooks[group][username])
+        {
+            return;
+        }
         connection.query("SELECT field FROM updates WHERE group_name = ? AND user = ?",
             [group, username],
             function(err, updates){
@@ -1052,7 +1055,7 @@
                     for(i = 0; i < updates.length; i += 1)
                     {
                         contents.push(updates[i].field);
-                        connection.query("DELETE FROM updates WHERE group_name = ? AND user = ? AND time < ?;",
+                        connection.query("DELETE FROM updates WHERE group_name = ? AND user = ? AND ? > time;",
                             [group, updates[i].user, timestamp],
                             _respondUpdates);
                     }
@@ -1061,7 +1064,13 @@
     }
 
     function _listenUpdates(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'string')
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp))
+        {
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
+            return;
+        }
+        timestamp = JSON.parse(timestamp);
+        if(typeof timestamp !== 'number')
         {
             _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
@@ -1094,7 +1103,10 @@
             [group],
             function(err, host)
             {
-                if(!hooks[group][host[0].host]) return;
+                if(!hooks[group][host[0].host])
+                {
+                    return;
+                }
                 connection.query("SELECT user, input, time FROM inputs WHERE group_name = ?",
                     [group],
                     function(err, input)
@@ -1120,9 +1132,9 @@
                             };
                             for(i = 0; i < input.length; i += 1) {
                                 contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
-                                connection.query("DELETE FROM inputs WHERE group_name = ? AND user = ? AND input = ? AND time < ? LIMIT 1;",
-                                    [group, input[i].user, input[i].input, timestamp],
-                                    _respondUpdates);
+                                connection.query("DELETE FROM inputs WHERE group_name = ? AND user = ? AND input = ? AND ? > time LIMIT 1;",
+                                 [group, input[i].user, input[i].input, timestamp],
+                                 _respondUpdates);
                             }
                         }
                     });
@@ -1130,7 +1142,13 @@
     }
 
     function _listenInputs(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || typeof timestamp !== 'string')
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp))
+        {
+            _finishResponse(INVALID, response, err_msg.incorrect_args);
+            return;
+        }
+        timestamp = JSON.parse(timestamp);
+        if(typeof timestamp !== 'number')
         {
             _finishResponse(INVALID, response, err_msg.incorrect_args);
             return;
