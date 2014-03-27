@@ -1133,26 +1133,24 @@
                     for(i = 0; i < updates.length; i += 1)
                     {
                         contents.push(updates[i].field);
-                        connection.query(
-                            "DELETE FROM updates " +
-                                "WHERE group_name = ? " +
-                                "AND user = ? AND " +
-                                "? > time;",
-                            [group, username, timestamp + 6000],
-                            function(err)
-                            {
-                                if(err)
-                                {//database error
-                                    _finishResponse(500, hooks[group][username], err_msg.db_err);
-                                    hooks[group][username] = '';
-                                }
-                                else
-                                {
-                                    _finishResponse(200, hooks[group][username], {updates: contents});
-                                    hooks[group][username] = '';
-                                }
-                            });
                     }
+                    connection.query(
+                        "DELETE FROM updates " +
+                            "WHERE group_name = ? " +
+                            "AND user = ? AND " +
+                            "? > time;",
+                        [group, username, timestamp + 1000],
+                        function(err)
+                        {
+                            if(err)
+                            {//database error
+                                _finishResponse(500, hooks[group][username], err_msg.db_err);
+                            }
+                            else
+                            {
+                                _finishResponse(200, hooks[group][username], {updates: contents});
+                            }
+                        });
                 }
             });
     }
@@ -1234,7 +1232,7 @@
                                     "WHERE group_name = ? " +
                                     "AND ? > time " +
                                     "LIMIT 1;",
-                                [group, timestamp + 6000],
+                                [group, timestamp + 1000],
                                 function(err)
                                 {
                                     if(err)
