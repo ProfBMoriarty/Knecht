@@ -16,7 +16,7 @@ var K = {};
     K.responses = {
         200 : "K.OK", //request was carried out successfully
         401 : "K.UNAUTH", //Session key is invalid, or user does not have permission to carry out request
-        403 : "K.INVALID", //request parameters are invalid, or requessted action is not possible on resource specified
+        403 : "K.INVALID", //request parameters are invalid, or requested action is not possible on resource specified
         500 : "K.ERROR" //this indicates that an unknown error has occurred, perhaps because of connection failure
 
     };
@@ -122,6 +122,14 @@ var K = {};
             }, _password );
     };
 
+    //this function deletes an existing account that is currently logged in as well as all data associated with that
+    //user, as well as closing any groups this member is hosting
+    //the callback parameter is a function that is called asynchronously once a response is received from the server
+    //the callback function must take one parameter that is an object with the members
+    //timestamp, which is the time the server sent its response
+    //result, which is the Knecht status string corresponding to the response code
+    //session, which is the session key identifying this login
+    //this function returns nothing
     K.unregister = function ( callback )
     {
         _sendRequest( "DELETE", "/users?session_id=" + _session_id, function ( status, result )
@@ -151,6 +159,8 @@ var K = {};
 
     //endregion
 
+    //region User Session functions
+
     //this function logs into an existing account with the given username and password
     //the email parameter is the string that was previously used to identify this account
     //the password parameter is the string that was used when the account was created
@@ -158,10 +168,9 @@ var K = {};
     //the callback function must take one parameter that is the response code from the server as defined in the
     //Constants section
     //this function returns nothing
-    //note that the server does not track which users are logged in; rather this function merely stores the given
-    //username and password for future calls and verifies that they are a valid pair
-
-    //region User Session functions
+    //note that the client does not track which account any give request is made with.  this means that a request might
+    //be automatically resent using different credentials if someone else has logged in in the mean time without first
+    //calling the logout function
     K.login = function ( email, password, callback )
     {
         _email = encodeURIComponent( email );
@@ -177,6 +186,12 @@ var K = {};
         }, _password );
     };
 
+    //this function logs out of the account currently logged in by clearing the local data and voiding the current
+    //session id.
+    //the callback parameter is a function that is called asynchronously once a response is received from the server
+    //the callback function must take one parameter that is the response code from the server as defined in the
+    //Constants section
+    //this function returns nothing
     K.logout = function(callback)
     {
         _email = null;

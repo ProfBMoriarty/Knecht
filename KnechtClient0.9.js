@@ -65,7 +65,15 @@ var K = {};
         request.send( JSON.stringify(body) );
     }
 
-
+    /**
+     * This function is used as a callback for server requests.
+     * @param status is an integer that is the status of the request to the server
+     * @param result is the result of the query
+     * @param fp is a function that...
+     * @param fn is...
+     * @param args is an array of 5 arguments suitable for the fp function
+     * @param callback a function to be called once a response is received from the server
+     */
     function _autoRelog(status, result, fp, fn, args, callback)
     {
         if  (K.responses[status] === K.UNAUTHORIZED )
