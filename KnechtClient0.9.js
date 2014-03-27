@@ -684,7 +684,7 @@ var K = {};
                 {
                     result.status = K.responses[status];
                     callback(result);
-                    if (result = K.OK && result.updates !== undefined )
+                    if (result.status === K.OK && result.updates !== undefined )
                     {
                         K.listenUpdates(group, callback, result.timestamp );
                     }
@@ -740,7 +740,7 @@ var K = {};
                 {
                     result.status = K.responses[status];
                     callback(result);
-                    if(result = K.OK && result.inputs !== undefined)
+                    if(result.status === K.OK && result.inputs !== undefined)
                     {
                         K.listenInputs(group, callback, result.timestamp );
                     }
