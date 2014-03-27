@@ -1,23 +1,20 @@
-/*jslint nomen: true, white: true, vars: true */
-/*global document, window, screen, console, require */
-
 (function()
 {
     "use strict";
 
     //region Server Configuration Variables
-    var port = 8080; //Server port the server will be listening on
+    var port = 8080; //Port the server will be listening on
+    var access_whitelist = '*'; //domains allowed to send requests to this server
     var db_config =
-    {
+    { //authentication variables and column lengths for the mysql server
         host: 'localhost',
         user: 'root',
         password:'pass',
         reconnect_delay: 2000,
-        column_size: //Note: field size variables only apply if tables do not already exist in the database
+        column_length: //Note: column length variables only apply if tables do not already exist in the database
         {
             username: 255,
             password: 32,
-            timestamp: 64,
             session_id: 320,
             application: 64,
             field: 128,
@@ -26,36 +23,34 @@
             input: 0xFFFFFF
         }
     };
-    //http response code macros, corresponding to knecht status messages
-    var OK = 200; //the request was fulfilled successfully
-    var UNAUTHORIZED = 401; //the request could not be fulfilled because the authentication parameters are invalid
-    var INVALID = 403; //the request could not be fulfilled because an invalid resource/argument has been specified
-    var ERROR = 500; //the request could not be fulfilled because a database error has occurred
-    var access_whitelist = '*'; //domains allowed to access the knecht server functions
-    //standard error messages sent on non-OK result
     var err_msg =
     {
-        request_err: {error: 'Unsupported Request'},
-        db_err: {error: 'Database Error'},
-        incorrect_args: {error: 'Incorrect Argument'},
-        invalid_session: {error:'Invalid Session ID'},
-        expired_session: {error: 'Expired Session ID'},
-        no_user: {error: 'User Not Registered'},
-        no_group: {error: 'Group Doesn\'t Exist'},
-        not_host: {error: 'User Is Not Host'},
-        dup_user: {error: 'User Already Registered'},
-        dup_group: {error: 'Group Already Exists'},
-        dup_member: {error: 'Group Already Includes User'},
-        wrong_pass: {error: 'Incorrect Password'}
+        request_err: {error: 'Unsupported Request'},//the request received is not supported by this server
+        db_err: {error: 'Database Error'}, //an error has occurred during a query to the MYSQL database
+        incorrect_arg: {error: 'Incorrect Argument'}, //one or more arguments to the requested function is incorrect
+        invalid_session: {error:'Invalid Session ID'}, //the provided session token does not match the one stored
+        expired_session: {error: 'Expired Session ID'}, //the provided session token matches but has expired
+        no_user: {error: 'User Doesn\'t Exist'}, //the provided user does not exist in the database
+        no_group: {error: 'Group Doesn\'t Exist'}, //the provided group does not exist in the database
+        not_host: {error: 'User Is Not Host'}, //the provided user is not the host of the provided group
+        dup_user: {error: 'User Already Exists'}, //the provided user already exists in the database
+        dup_group: {error: 'Group Already Exists'}, //the provided group already exists in the database
+        dup_member: {error: 'User Already Member'}, //the provided user is already a member of the provided group
+        not_member: {error: 'User Is Not Member'}, //the provided user is not a member of the provided group
+        wrong_pass: {error: 'Incorrect Password'} //the provided password is incorrect for the provided user or group
     };
     //endregion
 
-    //region Globals
+    //region Global Variables
     var mysql = require('mysql'); //Node.js module for interacting with the mysql database
     var url = require('url'); //Node.js module for parsing request urls
     var http = require('http'); //Node.js module for handling http requests
+
     var connection; //object representing the open connection to the mysql database
-    var hooks = {}; //stores response objects from listen requests. sorted by groups on outer level, members on inner
+
+    //members are group names with object values, whose members are user names with pending response values
+    var hooks = {};
+
     //endregion
 
     //region Initialization Functions
@@ -63,14 +58,14 @@
     {
         connection = mysql.createConnection(db_config);
         connection.connect(function(err)
-        {
+        { //open connection to the mysql database
             if(err)
-            {
+            { //if connecting fails, try again after delay
                 window.setTimeout(_connect, db_config.reconnect_delay);
-            } //if connecting fails, try again after delay
+            }
         });
-        connection.on('error', function(err) //reconnect automatically if disconnected, or throw error if other db error
-        {
+        connection.on('error', function(err)
+        { //reconnect automatically if disconnected, or throw error if other db error
             if(err.code === 'PROTOCOL_CONNECTION_LOST')
             {
                 _connect();
@@ -81,160 +76,205 @@
             }
         });
     }
-    function _initDatabase() //create necessary database tables if they do not yet exist
-    {
-        connection.query('CREATE DATABASE IF NOT EXISTS knecht;', function(err)
-        {
+    function _initDatabase()
+    { //create necessary database tables if they do not yet exist
+        function _checkInitError(err)
+        {//helper function to simply cut down on repeated code. Throws exception if error occurs during initialization
             if(err)
             {
                 throw err;
             }
-            connection.query('USE knecht;', function(err)
+        }
+        //create the knecht database, where all tables will be stored
+        connection.query('CREATE DATABASE IF NOT EXISTS knecht;', function(create_db_err)
+        {
+            _checkInitError(create_db_err);
+            //set knecht as the active database
+            connection.query('USE knecht;', function(use_knecht_err)
             {
-                if(err)
-                {
-                    throw err;
-                }
-                connection.query('CREATE TABLE IF NOT EXISTS users(' +
-                    'username VARCHAR (' + db_config.column_size.username + '),' +
-                    'password VARCHAR (' + db_config.column_size.password + '),' +
-                    'timeout INTEGER,' +
-                    'session_id VARCHAR (' + db_config.column_size.session_id + '),' +
-                    'last_ping NUMERIC (' + db_config.column_size.timestamp + '),' +
+               _checkInitError(use_knecht_err);
+                //create table containing user IDs and authentication variables
+                connection.query('CREATE TABLE IF NOT EXISTS users(' + //each entry represents a single knecht account
+                    //name of the account
+                    'username VARCHAR (' + db_config.column_length.username + '),' +
+                    //password associated with account
+                    'password VARCHAR (' + db_config.column_length.password + '),' +
+                    //maximum time in minutes between requests before account's session expires
+                    'timeout TINYINT,' +
+                    //username + number generated randomly on login that identifies the active session for this account
+                    'session_id VARCHAR (' + db_config.column_length.session_id + '),' +
+                    //timestamp of the last request received from this account
+                    'last_ping BIGINT,' +
+                    //username must be unique among all entries
                     'PRIMARY KEY (username));',
-                    function(err)
+                    function(create_users_err)
                     {
-                        if(err)
-                        {
-                            throw err;
-                        }
+                        _checkInitError(create_users_err);
+                        //create table of single-player application data entries
                         connection.query('CREATE TABLE IF NOT EXISTS user_data(' +
-                            'user VARCHAR (' + db_config.column_size.username + '),' +
-                            'app VARCHAR (' + db_config.column_size.application + '),' +
-                            'field VARCHAR (' + db_config.column_size.field + '),' +
-                            'data TEXT (' + db_config.column_size.data + '),' +
+                            //the name of the account with which the entry is associated
+                            'user VARCHAR (' + db_config.column_length.username + '),' +
+                            //the application with which the entry is associated
+                            'app VARCHAR (' + db_config.column_length.application + '),' +
+                            //the name of the data field with which the entry is associated
+                            'field VARCHAR (' + db_config.column_length.field + '),' +
+                            //data value stored in the specified field
+                            'data TEXT (' + db_config.column_length.data + '),' +
+                            //combination of user, app, and field must be unique among all entries
                             'PRIMARY KEY (user, app, field),' +
+                            //user field must correspond to a registered user
                             'FOREIGN KEY (user) REFERENCES users (username)' +
+                            //entries will be deleted or updated as the associated user is deleted or renamed
                             'ON DELETE CASCADE ON UPDATE CASCADE);',
-                            function(err)
-                            {
-                                if(err)
-                                {
-                                    throw err;
-                                }
-                            });
+                            _checkInitError);
                         connection.query('CREATE TABLE IF NOT EXISTS groups(' +
-                            'name VARCHAR (' + db_config.column_size.group + '),' +
-                            'app VARCHAR (' + db_config.column_size.application + '),' +
-                            'password VARCHAR (' + db_config.column_size.password + '),' +
-                            'host VARCHAR (' + db_config.column_size.username + '),' +
+                            //the name of the group with which the entry is associated
+                            'name VARCHAR (' + db_config.column_length.group + '),' +
+                            //the name off the application the group is for
+                            'app VARCHAR (' + db_config.column_length.application + '),' +
+                            //the name of the account that started the group
+                            'host VARCHAR (' + db_config.column_length.username + '),' +
+                            //group name must be unique among all entries
                             'PRIMARY KEY (name),' +
-                            'FOREIGN KEY (host) REFERENCES users (username) ON DELETE CASCADE ON UPDATE CASCADE);',
-                            function(err)
+                            //host field must correspond to a registered user
+                            'FOREIGN KEY (host) REFERENCES users (username)' +
+                            //entries will be deleted or updated as the host user is deleted or renamed
+                            'ON DELETE CASCADE ON UPDATE CASCADE);',
+                            function(create_groups_err)
                             {
-                                if(err)
-                                {
-                                    throw err;
-                                }
+                                _checkInitError(create_groups_err);
+                                //create table of group member entries
                                 connection.query('CREATE TABLE IF NOT EXISTS members(' +
-                                    'group_name VARCHAR (' + db_config.column_size.group + '),' +
-                                    'user VARCHAR (' + db_config.column_size.username + '),' +
+                                    //name of the group the entry is associated with
+                                    'group_name VARCHAR (' + db_config.column_length.group + '),' +
+                                    //name of the user the entry is associated with
+                                    'user VARCHAR (' + db_config.column_length.username + '),' +
+                                    //combination of group name and username must be unique among all entries
                                     'PRIMARY KEY (group_name, user),' +
+                                    //user field must correspond to a registered user
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
+                                    //entries will be deleted or updated as the associated user is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
+                                    //group_name field must correspond to a registered group
                                     'FOREIGN KEY (group_name) REFERENCES groups (name)' +
+                                    //entries will be deleted or updated as the associated group is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE);',
-                                    function(err)
-                                    {
-                                        if(err)
-                                        {
-                                            throw err;
-                                        }
-                                    });
+                                    _checkInitError);
+                                //create table of shared data entries
                                 connection.query('CREATE TABLE IF NOT EXISTS group_data(' +
-                                    'group_name VARCHAR (' + db_config.column_size.group + '),' +
-                                    'field VARCHAR (' + db_config.column_size.field + '),' +
-                                    'data TEXT (' + db_config.column_size.data + '),' +
+                                    //name of the group the entry is associated with
+                                    'group_name VARCHAR (' + db_config.column_length.group + '),' +
+                                    //name of the data field the entry is associated with
+                                    'field VARCHAR (' + db_config.column_length.field + '),' +
+                                    //data value stored in the specified field
+                                    'data TEXT (' + db_config.column_length.data + '),' +
+                                    //combination of group_name and field must be unique among all entries
                                     'PRIMARY KEY (group_name, field),' +
+                                    //group_name must correspond to a registered group
                                     'FOREIGN KEY (group_name) REFERENCES groups(name)' +
+                                    //entries will be deleted or updated as the associated group is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE);',
-                                    function(err)
-                                    {
-                                        if(err)
-                                        {
-                                            throw err;
-                                        }
-                                    });
+                                    _checkInitError);
+                                //create table of pending update notifications
                                 connection.query('CREATE TABLE IF NOT EXISTS updates(' +
-                                    'group_name VARCHAR (' + db_config.column_size.group + '),' +
-                                    'user VARCHAR (' + db_config.column_size.username + '),' +
-                                    'field VARCHAR (' + db_config.column_size.field + '),' +
-                                    'time NUMERIC (' + db_config.column_size.timestamp + '),' +
+                                    //name of the group the notification is for
+                                    'group_name VARCHAR (' + db_config.column_length.group + '),' +
+                                    //name of the user the notification is for
+                                    'user VARCHAR (' + db_config.column_length.username + '),' +
+                                    //name of the data field that has been updated
+                                    'field VARCHAR (' + db_config.column_length.field + '),' +
+                                    //timestamp off when the update occurred
+                                    'time BIGINT,' +
+                                    //combination of group_name, user, and field must be unique among all entries
                                     'PRIMARY KEY (group_name, user, field),' +
+                                    //user must correspond to a registered user
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
+                                    //entries will be deleted or updated as the associated user is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
+                                    //group_name must correspond to a registered group
                                     'FOREIGN KEY (group_name) REFERENCES groups(name)' +
+                                    //entries will be deleted or updated as the associated group is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE);',
-                                    function(err)
-                                    {
-                                        if(err)
-                                        {
-                                            throw err;
-                                        }
-                                    });
+                                    _checkInitError);
+                                //create table of pending inputs
                                 connection.query('CREATE TABLE IF NOT EXISTS inputs(' +
-                                    'group_name VARCHAR (' + db_config.column_size.group + '),' +
-                                    'user VARCHAR (' + db_config.column_size.username + '),' +
-                                    'input TEXT (' + db_config.column_size.input + '),' +
-                                    'time NUMERIC (' + db_config.column_size.timestamp + '),' +
+                                    //name of the group the input is for
+                                    'group_name VARCHAR (' + db_config.column_length.group + '),' +
+                                    //name of the user the input is from
+                                    'user VARCHAR (' + db_config.column_length.username + '),' +
+                                    //input value associated with the entry
+                                    'input TEXT (' + db_config.column_length.input + '),' +
+                                    //timestamp of when the input was received by the server
+                                    'time BIGINT,' +
+                                    //user must correspond to a registered user
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
+                                    //entries will be deleted or updated as the associated user is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
+                                    //user must correspond to a registered group
                                     'FOREIGN KEY (group_name) REFERENCES groups(name)' +
+                                    //entries will be deleted or updated as the associated group is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE);',
-                                    function(err)
-                                    {
-                                        if(err)
-                                        {
-                                            throw err;
-                                        }
-                                    });
+                                    _checkInitError);
+                                //create table of entries defining a whitelist of who can access group data fields
                                 connection.query('CREATE TABLE IF NOT EXISTS permissions(' +
-                                    'group_name VARCHAR (' + db_config.column_size.group + '),' +
-                                    'user VARCHAR (' + db_config.column_size.username + '),' +
-                                    'field VARCHAR (' + db_config.column_size.field + '),' +
+                                    //name of the group the permission is for
+                                    'group_name VARCHAR (' + db_config.column_length.group + '),' +
+                                    //name of the user granted permissions. If this field is host, all users can access
+                                    'user VARCHAR (' + db_config.column_length.username + '),' +
+                                    //field the permission is for
+                                    'field VARCHAR (' + db_config.column_length.field + '),' +
+                                    //combination of group_name, user, and field must be unique among all entries
                                     'PRIMARY KEY (group_name, user, field),' +
+                                    //user must correspond to a registered user
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
+                                    //entries will be deleted or updated as the associated user is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE,' +
+                                    //user must correspond to a registered group
                                     'FOREIGN KEY (group_name) REFERENCES groups (name)' +
+                                    //entries will be deleted or updated as the associated group is deleted or renamed
                                     'ON DELETE CASCADE ON UPDATE CASCADE);',
-                                    function(err)
-                                    {
-                                        if(err)
-                                        {
-                                            throw err;
-                                        }
-                                    });
+                                    _checkInitError);
                             });
                     });
             });
         });
-
     }
     //endregion
 
-    //region Helper Functions
-    function _getTime() //returns the number of milliseconds since midnight January 1, 1970
-    {
-        return new Date().getTime();
+    //region Response Functions
+    function _finishResponse(status, response, body)
+    {//applies headers to an http response and sends it to the client
+        if(!body)
+        { //if no body object provided, create an empty object
+            body = {};
+        }
+        body.timestamp = new Date().getTime(); //number of milliseconds since midnight January 1, 1970
+        response.writeHead(status,
+            {
+                'Content-Type': 'application/json', //tell browser that the response boy will be in JSON string format
+                'Access-Control-Allow-Origin': access_whitelist, //allow whitelisted domains to make requests
+                'Cache-Control': 'no-cache, no-store, must-revalidate', //disallow caching of requests
+                'Pragma': 'no-cache', //disallow caching of requests
+                'Expires': 0 //disallow caching of requests
+            });
+        response.end(JSON.stringify(body)); //send the finished response back to client as JSON
+        console.log(JSON.stringify(body));
     }
 
-    function _generateSessionID(username) //returns a unique session_id token for the given username
-    {
-        return username + Math.random();
+    function _respondOptions(methods, response)
+    { //sends an OPTIONS response to the client listing allowed methods on the requested resource
+        response.writeHead(200,
+            {
+                'Access-Control-Allow-Origin': access_whitelist, //allow whitelisted domains to make requests
+                'Access-Control-Allow-Methods': methods //list the methods that can be requested on this resource
+            });
+        response.end(); //send the finished response back to client
     }
+    //endregion
 
-    function _isJSON (string) //returns true if the given string can be parsed as JSON, otherwise false
-    {
+    //region Utility Functions
+    function _isJSON (string)
+    { //returns true if the given string can be parsed as JSON, otherwise false
         try
         {
             JSON.parse(string);
@@ -245,201 +285,221 @@
         }
         return true;
     }
-    //endregion
 
-    //region Response Functions
-    function _finishResponse(status, response, body) //applies headers to an http response and sends it to the client
-    {
-        if(!body)
-        {
-            body = {};
-        }
-        body.timestamp = _getTime();
-        response.writeHead(status,
-            {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': access_whitelist,
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': 0
-            });
-        response.end(JSON.stringify(body));
-        console.log(status + JSON.stringify(body));
-    }
-    function _respondOptions(methods, response) //sends an OPTIONS http response to the client
-    {
-        response.writeHead(OK,
-            {
-                'Access-Control-Allow-Origin': access_whitelist,
-                'Access-Control-Allow-Methods': methods
-            });
-        response.end();
+    function _generateSessionID(username)
+    {//returns a session_id token for the given username
+        return username + Math.random();
     }
     //endregion
 
     //region Credentials Functions
-    function _checkCredentials(session_id, response, callback) //invalid if wrong session_id, unauthorized if expired
+
+    /*responds with an error if the provided session is invalid or expired, otherwise executes callback with the name of
+    the associated user as its sole parameter*/
+    function _checkCredentials(session, response, callback)
     {
-        connection.query("SELECT username, timeout, last_ping FROM users WHERE session_id = ? LIMIT 1;",
-            [session_id],
+        connection.query(
+            "SELECT username, timeout, last_ping " +
+                "FROM users " +
+                "WHERE session_id = ? " +
+                "LIMIT 1;",
+            [session],
             function(err, result)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                { //database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if(result.length === 0)
-                {
-                    _finishResponse(INVALID, response, err_msg.invalid_session);
+                {//no user found matching provided session id
+                    _finishResponse(404, response, err_msg.invalid_session);
                 }
-                else if(result[0].last_ping + result[0].timeout * 60000 <= _getTime() )
-                {
-                    _finishResponse(UNAUTHORIZED, response, err_msg.expired_session);
+                else if(result[0].last_ping + result[0].timeout * 60000 <= new Date().getTime() )
+                {//session_id expired
+                    _finishResponse(401, response, err_msg.expired_session);
                 }
                 else
-                {
-                    connection.query("UPDATE users SET last_ping = ? WHERE username = ? LIMIT 1;",
-                        [_getTime(), result[0].username],
+                {//refresh the expiration countdown on this session
+                    connection.query(
+                        "UPDATE users " +
+                            "SET last_ping = ? " +
+                            "WHERE username = ? " +
+                            "LIMIT 1;",
+                        [new Date().getTime(), result[0].username],
                         function(err)
                         {
                             if(err)
-                            {
-                                _finishResponse(ERROR, response, err_msg.db_err);
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
-                            callback(result[0].username); //return email of user to calling function
+                            else
+                            { //pass username to callback
+                                callback(result[0].username);
+                            }
                         });
                 }
             });
     }
-    function _checkHost(username, group, response, callback) //invalid if group doesnt exist, unauthorized if not host
+
+    /*responds with an error if the provided group does not exist or if it is not hosted by the provided user, otherwise
+    executes callback with no parameters*/
+    function _checkHost(username, group, response, callback)
     {
-        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;",
+        connection.query(
+            "SELECT host " +
+                "FROM groups " +
+                "WHERE name = ? " +
+                "LIMIT 1;",
             [group],
             function(err, result)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if (result.length === 0)
-                {
-                    _finishResponse(INVALID, response, err_msg.no_group);
+                {//group not found
+                    _finishResponse(404, response, err_msg.no_group);
                 }
                 else if(result[0].host !== username)
-                {
-                    _finishResponse(UNAUTHORIZED, response, err_msg.not_host);
+                {//user is not host
+                    _finishResponse(403, response, err_msg.not_host);
                 }
                 else
-                {
+                {//proceed to callback
                     callback();
-                } //proceed to calling function
+                }
             });
     }
     //endregion
 
     //region User functions
-    function _checkUserRegistered(username, response) //registered: true if user exists on server, otherwise false
+
+    //responds with member registered of type boolean. registered is true if user exists on server, otherwise false
+    function _checkUserRegistered(username, response)
     {
         if( typeof username !== 'string' )
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        { //argument is of incorrect type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        connection.query("SELECT 1 FROM users WHERE username = ? LIMIT 1;",
+        connection.query(
+            "SELECT 1 " +
+                "FROM users " +
+                "WHERE username = ? " +
+                "LIMIT 1;",
             [username],
             function(err, result)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if (result.length === 0)
-                {
-                    _finishResponse(OK, response, {registered: false});
+                {//user is not registered
+                    _finishResponse(200, response, {registered: false});
                 }
                 else
-                {
-                    _finishResponse(OK, response, {registered: true});
+                {//user is registered
+                    _finishResponse(200, response, {registered: true});
                 }
             });
     }
-    function _register(username, password, timeout, response)//user's session_id set if login successful, sent to client
-    {
+
+    function _register(username, password, timeout, response)
+    {//responds with member session of type string if successful. value is initial session_id
         if(!_isJSON(password))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         password = JSON.parse(password);
         timeout = parseInt(timeout, 10);
         if(typeof username !== 'string' || typeof password !== 'string' || isNaN(timeout) )
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         var session_id = _generateSessionID(username);
-        connection.query("INSERT INTO users VALUES (?, ?, ?, ?, ?);",
-            [username, password, timeout, session_id, _getTime()],
+        connection.query(
+            "INSERT INTO users " +
+                "VALUES (?, ?, ?, ?, ?);",
+            [username, password, timeout, session_id, new Date().getTime()],
             function(err)
             {
                 if(err)
-                {
+                {//if user already exists, respond with duplicate user error message, otherwise database error message
                     if(err.code === "ER_DUP_ENTRY")
                     {
-                        _finishResponse(INVALID, response,  err_msg.dup_user);
+                        _finishResponse(403, response,  err_msg.dup_user);
                     }
                     else
                     {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                 }
                 else
-                {
-                    _finishResponse(OK, response, {session: session_id});
+                { //respond with the session id if successful
+                    _finishResponse(200, response, {session: session_id});
                 } //user registered and logged in successfully
             });
     }
-    function _unregister(session_id, response) //removes all data on user except pending group input
-    {
+
+    function _unregister(session_id, response)
+    {//removes user and all associated db entries if successful
         if(typeof session_id !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
-            connection.query("SELECT name FROM groups WHERE host = ?;",
+            //get all of the groups this user is host of
+            connection.query(
+                "SELECT name " +
+                    "FROM groups " +
+                    "WHERE host = ?;",
                 [username],
                 function(err, result)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
-                    {
-                        connection.query("DELETE FROM users WHERE username = ? LIMIT 1;",
+                    {//remove the user from the database
+                        connection.query(
+                            "DELETE FROM users " +
+                                "WHERE username = ? " +
+                                "LIMIT 1;",
                             [username],
                             function(err)
                             {
                                 if(err)
-                                {
-                                    _finishResponse(ERROR, response, err_msg.db_err);
+                                {//database error
+                                    _finishResponse(500, response, err_msg.db_err);
                                 }
                                 else
                                 {
-                                    var i, member;
-                                    _finishResponse(OK, response); //user successfully removed from database
+                                    var i, group, member;
+                                    _finishResponse(200, response); //user successfully removed from database
                                     for(i = 0; i < result.length; i += 1)
-                                    {
+                                    {//notify hosted group members that group no longer exists
                                         for(member in hooks[result[i].name])
                                         {
                                             if (hooks[result[i].name].hasOwnProperty(member))
                                             {
-                                                _finishResponse(OK, hooks[result[i].name][member]); //notify group members
+                                                _finishResponse(200, hooks[result[i].name][member]);
                                             }
-                                        }//remove stored response objects for user
+                                        }
                                         delete hooks[result[i].name];
+                                    }
+                                    for(member in hooks)
+                                    {
+                                        if (hooks.hasOwnProperty(member))
+                                        {//delete this user's stored hooks
+                                            delete hooks[member][username];
+                                        }
                                     }
                                 }
                             });
@@ -447,80 +507,93 @@
                 });
         });
     }
-
-
     //endregion
 
     //region User Session functions
-    function _login(username, password, response) //session_id set if successful and sent to client
+
+    //responds with member session of type string if successful, with session_id as value. Invalidates previous session
+    function _login(username, password, response)
     {
-        if(!_isJSON(password))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        if(typeof username !== 'string' || !_isJSON(password))
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         password = JSON.parse(password);
-        if(typeof username !== 'string' || typeof password !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        if(typeof password !== 'string')
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        connection.query("SELECT password FROM users WHERE username = ? LIMIT 1;",
+        connection.query(
+            "SELECT password " +
+                "FROM users " +
+                "WHERE username = ? " +
+                "LIMIT 1;",
             [username],
             function(err, result)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if(result.length === 0)
-                {
-                    _finishResponse(INVALID, response, err_msg.no_user);
+                {//user not found
+                    _finishResponse(404, response, err_msg.no_user);
                 }
                 else if(result[0].password !== password)
-                {
-                    _finishResponse(UNAUTHORIZED, response, err_msg.wrong_pass);
+                {//incorrect password
+                    _finishResponse(401, response, err_msg.wrong_pass);
                 }
                 else
                 {
                     var session_id = _generateSessionID(username);
-                    connection.query("UPDATE users SET session_id = ?, last_ping = ? WHERE username = ? LIMIT 1;",
-                        [session_id, _getTime(), username],
+                    connection.query(
+                        "UPDATE users " +
+                            "SET session_id = ?, last_ping = ? " +
+                            "WHERE username = ? " +
+                            "LIMIT 1;",
+                        [session_id, new Date().getTime(), username],
                         function(err)
                         {
                             if(err)
-                            {
-                                _finishResponse(ERROR, response, err_msg.db_err);
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
                             else
-                            {
-                                _finishResponse(OK, response, {session_id: session_id});
-                            } //login successful
+                            {//login successful
+                                _finishResponse(200, response, {session: session_id});
+                            }
                         });
                 }
             });
     }
 
-    function _logout(session_id, response) //expires session_id if successful
-    {
+    function _logout(session_id, response)
+    {//expires session_id if successful
         if(typeof session_id !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
-            connection.query("UPDATE users SET last_ping = 0 WHERE username = ? LIMIT 1;",
+            //set last ping to epoch to expire session
+            connection.query(
+                "UPDATE users " +
+                    "SET last_ping = 0 " +
+                    "WHERE username = ? " +
+                    "LIMIT 1;",
                 [username],
                 function(err)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
                     {
-                        _finishResponse(OK, response);
+                        _finishResponse(200, response);
                     } //logout successful
                 });
         });
@@ -528,58 +601,67 @@
     //endregion
 
     //region User Password functions
-    function _recoverPassword(username, response) //treats username as an email address to send password details to
-    {
+
+    function _recoverPassword(username, response)
+    {//treats username as an email address to send password details to
         if(typeof username !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        connection.query("SELECT 1 FROM users WHERE username = ?;",
+        connection.query(
+            "SELECT 1 " +
+                "FROM users " +
+                "WHERE username = ?;",
             [username],
             function(err, result)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if(result === 0)
-                {
-                    _finishResponse(INVALID, response, err_msg.no_user);
+                {//user not found
+                    _finishResponse(404, response, err_msg.no_user);
                 }
                 else
                 {
                     //TODO: send recovery email
-                    _finishResponse(OK, response);
+                    _finishResponse(200, response);//no guarantee that email is actually received, only that it is sent
                 }
             });
     }
+
     function _changePassword(session_id, password, response)
     {
-        if(!_isJSON(password))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        if(typeof session_id !== 'string' || !_isJSON(password))
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         password = JSON.parse(password);
-        if(typeof session_id !== 'string' || typeof password !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        if(typeof password !== 'string')
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
-            connection.query("UPDATE users SET password = ? WHERE username = ? LIMIT 1;",
+            connection.query(
+                "UPDATE users " +
+                    "SET password = ? " +
+                    "WHERE username = ? " +
+                    "LIMIT 1;",
                 [password, username],
                 function(err)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
                     {
-                        _finishResponse(OK, response);
+                        _finishResponse(200, response);
                     }
                 });
         });
@@ -587,34 +669,35 @@
     //endregion
 
     //region User Data functions
-    function _putData(session_id, app, field, data, response) //can either put single or multiple pieces of data at once
-    {
+
+    function _putData(session_id, app, field, data, response)
+    {//data and field are both either strings or arrays of strings with the same number of elements
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field) || !_isJSON(data))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
         data = JSON.parse(data);
         if(typeof field === 'string')
-        {
+        {//massage single strings into arrays so they can be processed
             field = [field];
             data = [data];
         }
         else if(!(field instanceof Array) || !(data instanceof Array) || field.length !== data.length)
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is of wrong type, or array lengths do not match
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
             var i, values;
-            values = '';
+            values = ''; //entry values to be inserted into user_data table
             for(i = 0; i < field.length; i += 1)
-            {
+            { //for each field to be updated, add an entry to the values string
                 if(typeof field[i] !== 'string')
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
+                {//argument is of wrong type
+                    _finishResponse(400, response, err_msg.incorrect_args);
                     return;
                 }
                 values += "("
@@ -627,45 +710,53 @@
                     values += ",";
                 }
             }
-            connection.query("INSERT INTO user_data VALUES " + values + " ON DUPLICATE KEY UPDATE user_data SET data = VALUES(data);",
+            connection.query(
+                "INSERT INTO user_data " +
+                    "VALUES " + values +
+                    " ON DUPLICATE KEY " +
+                    "UPDATE user_data " +
+                    "SET data = VALUES(data);",
                 function(err)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
-                    {
-                        _finishResponse(OK, response);
+                    {//data successfully updated
+                        _finishResponse(200, response);
                     }
                 });
         });
     }
-    function _getData(session_id, app, field, response) //can get either single or multiple pieces of data at once
+
+    /*field can be either a single string or an array of string. Responds with member data of type object, with members
+    corresponding to field names with the appropriate data as values*/
+    function _getData(session_id, app, field, response)
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
         if(typeof field === 'string')
-        {
+        {//massage field into array so it can be processed
             field = [field];
         }
         else if(!(field instanceof Array))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
             var i, query_fields;
-            query_fields = '';
+            query_fields = '';//fields to be queried for their data values
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
+                {//argument is wrong type
+                    _finishResponse(400, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -674,51 +765,58 @@
                     query_fields += " OR ";
                 }
             }
-            connection.query("SELECT field, data FROM user_data WHERE user = ? AND app = ? AND (" + query_fields + ");",
+            connection.query(
+                "SELECT field, data " +
+                    "FROM user_data " +
+                    "WHERE user = ? " +
+                    "AND app = ? " +
+                    "AND (" + query_fields + ");",
                 [username, app],
                 function(err, result)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
-                    else{
+                    else
+                    {//process result into an object matching field names to their data values
                         var data = {};
                         for(i = 0; i < result.length; i += 1)
-                        {
+                        {//for each field that returned a result
                             data[result[i].field] = JSON.parse(result[i].data);
                         }
-                        _finishResponse(OK, response, {data: data});
+                        _finishResponse(200, response, {data: data});
                     }
                 });
         });
     }
-    function _deleteData(session_id, app, field, response) //can delete either single or multiple pieces of data at once
-    {
+
+    function _deleteData(session_id, app, field, response)
+    {//field can be either a single string or an array of string
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
         if(typeof field === 'string')
-        {
+        {//massage field to be array so it can be processed
             field = [field];
         }
         else if(!(field instanceof Array))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response,function(username)
         {
             var i, query_fields;
-            query_fields = '';
+            query_fields = '';//field names to be deleted
             for(i = 0; i < field.length; i += 1)
             {
                 if(typeof field[i] !== 'string')
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
+                {//argument is wrong type
+                    _finishResponse(400, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -727,17 +825,21 @@
                     query_fields += " OR ";
                 }
             }
-            connection.query("DELETE FROM user_data WHERE user = ? AND app = ? AND (" + query_fields + ");",
+            connection.query(
+                "DELETE FROM user_data " +
+                    "WHERE user = ? " +
+                    "AND app = ? " +
+                    "AND (" + query_fields + ");",
                 [username, app],
                 function(err)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
                     {
-                        _finishResponse(OK, response);
+                        _finishResponse(200, response);
                     }
                 });
         });
@@ -745,97 +847,106 @@
     //endregion
 
     //region Groups functions
-    function _startGroup(session_id, name, app, password, response) //starts group and sets requester as host
-    {
-        if(!_isJSON(password))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+    function _startGroup(session_id, name, app, password, response)
+    {//starts group and sets requesting user as host
+        if(typeof session_id !== 'string' || typeof name !=='string' || typeof app !=='string' || !_isJSON(password))
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         password = JSON.parse(password);
-        if(typeof session_id !== 'string' || typeof name !=='string' || typeof app !=='string' || typeof password !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        if(typeof password !== 'string')
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
-            connection.query("INSERT INTO groups VALUES (?, ?, ?, ?);",
-                [name, app, password, username],
+            connection.query(
+                "INSERT INTO groups " +
+                    "VALUES (?, ?, ?);",
+                [name, app, username],
                 function(err)
                 {
                     if(err)
                     {
                         if(err.code === "ER_DUP_ENTRY")
-                        {
-                            _finishResponse(INVALID, response, err_msg.dup_group);
+                        {//group already exists
+                            _finishResponse(403, response, err_msg.dup_group);
                         }
                         else
-                        {
-                            _finishResponse(ERROR, response, err_msg.db_err);
+                        {//database error
+                            _finishResponse(500, response, err_msg.db_err);
                         }
                     }
                     else
                     {
                         hooks[name] = {}; //create object to hold pending responses for this group
-                        _finishResponse(OK, response);
+                        _finishResponse(200, response);
                     }
                 });
         });
     }
 
-    function _listGroupsOfApp(app, response) //returns array of group names using the given app
-    {
+    function _listGroupsOfApp(app, response)
+    {//responds with member groups which is array of names of groups using the given app if successful
         if(typeof app !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        connection.query("SELECT name FROM groups WHERE app = ?;", [app], function(err, result)
+        connection.query(
+            "SELECT name " +
+                "FROM groups " +
+                "WHERE app = ?;", [app], function(err, result)
         {
             if(err)
-            {
-                _finishResponse(ERROR, response, err_msg.db_err);
+            {//database error
+                _finishResponse(500, response, err_msg.db_err);
             }
-            else{
+            else
+            {//process result into an array of group names
                 var i, group_list = [];
                 for(i = 0; i < result.length; i += 1)
                 {
                     group_list.push(result[i].name);
                 }
-                _finishResponse(OK, response, {groups: group_list});
+                _finishResponse(200, response, {groups: group_list});
             }
         });
     }
 
-    function _closeGroup(session_id, group, response) //deletes a group and all its data
-    {
+    function _closeGroup(session_id, group, response)
+    {//deletes a group and all its associated database entries
         if(typeof session_id !=='string' || typeof group !=='string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
             _checkHost(username, group, response, function()
             {
-                connection.query("DELETE FROM groups WHERE name = ? LIMIT 1;",
+                connection.query(
+                    "DELETE FROM groups " +
+                        "WHERE name = ? " +
+                        "LIMIT 1;",
                     [group],
                     function(err)
                     {
                         if(err)
-                        {
-                            _finishResponse(ERROR, response, err_msg.db_err);
+                        {//database error
+                            _finishResponse(500, response, err_msg.db_err);
                         }
                         else {
                             var member;
-                            _finishResponse(OK, response);
-                            for(member in hooks[group]){
+                            _finishResponse(200, response);
+                            for(member in hooks[group]){//notify group members that group is closed
                                 if (hooks[group].hasOwnProperty(member))
                                 {
-                                    _finishResponse(OK, hooks[group][member]);
+                                    _finishResponse(200, hooks[group][member]);
                                 }
-                            } //notify members
+                            }
                             delete hooks[group];
                         }
                     });
@@ -844,127 +955,104 @@
     }
     //endregion
 
-    //region Group Password functions
-    function _checkGroupPassword(group, password, response) //responds true if password for group is correct, else false
-    {
-        if(typeof group !== 'string' || !_isJSON(password))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
-        }
-        password = JSON.parse(password);
-        if(typeof password !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
-        }
-        connection.query("SELECT 1 FROM groups WHERE name = ? AND password = ? LIMIT 1;",
-            [group, password],
-            function(err, result){
-                if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
-                }
-                else if(result.length === 0)
-                {
-                    _finishResponse(OK, response, {correct: false});
-                }
-                else
-                {
-                    _finishResponse(OK, response, {correct: true});
-                }
-            });
-    }
-    //endregion
-
     //region Group Members functions
+
     function _addMember(session_id, group, member, response)
     {
         if(typeof session_id !== 'string' || typeof group !== 'string' || typeof member !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
             _checkHost(username, group, response, function(){
                 if(member === username)
-                {
-                    _finishResponse(INVALID, response, err_msg.dup_member);
+                {//user is host, thus already in group
+                    _finishResponse(403, response, err_msg.dup_member);
                     return;
                 }
-                connection.query("INSERT INTO members VALUES (?, ?);",
+                connection.query(
+                    "INSERT INTO members " +
+                        "VALUES (?, ?);",
                     [group, member],
                     function(err)
                     {
                         if(err)
                         {
                             if(err.code === "ER_DUP_ENTRY")
-                            {
-                                _finishResponse(INVALID, response, err_msg.dup_member);
+                            {//member is already in group
+                                _finishResponse(403, response, err_msg.dup_member);
                             }
                             else
-                            {
-                                _finishResponse(ERROR, response, err_msg.db_err);
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
                         }
                         else
                         {
-                            _finishResponse(OK, response);
+                            _finishResponse(200, response);
                         }
                     });
             });
         });
     }
     function _listMembersOfGroup(group, response)
-    {
+    {//responds with member members if successful, which is array of username strings
         if(typeof group !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;",
+        connection.query(
+            "SELECT host " +
+                "FROM groups " +
+                "WHERE name = ? " +
+                "LIMIT 1;",
             [group],
             function(err, host)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else if(host.length === 0)
-                {
-                    _finishResponse(INVALID, response, err_msg.no_group);
+                {//group not found
+                    _finishResponse(404, response, err_msg.no_group);
                 }
                 else
                 {
                     var members = [];
-                    connection.query("SELECT user FROM members WHERE group_name = ?;",
+                    connection.query(
+                        "SELECT user " +
+                            "FROM members " +
+                            "WHERE group_name = ?;",
                         [group],
                         function(err, result)
                         {
                             if(err)
-                            {
-                                _finishResponse(ERROR, response, err_msg.db_err);
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
                             else
-                            {
+                            {//process result into array of usernames
                                 var i;
                                 for(i = 0; i < result.length; i += 1)
                                 {
                                     members.push(result[i].user);
                                 }
-                                _finishResponse(OK, response, {host: host[0].host, members: members});
+                                _finishResponse(200, response, {host: host[0].host, members: members});
                             }
                         });
                 }
             });
     }
 
-    function _removeMember(session_id, group, member, response) //removes a user from a group and deletes their info in it
-    {
+    function _removeMember(session_id, group, member, response)
+    {//removes a user from a group and deletes their pending notifications
         if(typeof session_id !== 'string' || typeof group !== 'string' || typeof member !== 'string')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
@@ -972,48 +1060,43 @@
             _checkHost(username, group, response, function()
             {
                 if(username === member)
-                {
+                {//host has quit, close group instead
                     _closeGroup(session_id, group, response);
-                } //host has quit, close group instead
+                }
                 else
                 { //clear up the removed user's info in the group
                     if(hooks[group][member])
                     {
-                        _finishResponse(OK, hooks[group][member]);
+                        _finishResponse(200, hooks[group][member]);
                     }
-                    connection.query("DELETE FROM members WHERE group_name = ? AND user = ? LIMIT 1;",
+                    connection.query(
+                        "DELETE FROM members " +
+                            "WHERE group_name = ? " +
+                            "AND user = ? " +
+                            "LIMIT 1;",
                         [group, member],
                         function(err)
                         {
                             if(err)
-                            {
-                                _finishResponse(ERROR, response, err_msg.db_err);
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
                             else
-                            {
-                                connection.query("DELETE FROM updates WHERE group_name = ? AND user = ?;",
+                            {//clean up update notifications
+                                connection.query(
+                                    "DELETE FROM updates " +
+                                        "WHERE group_name = ? " +
+                                        "AND user = ?;",
                                     [group, member],
                                     function(err)
                                     {
                                         if(err)
-                                        {
-                                            _finishResponse(ERROR, response, err_msg.db_err);
+                                        {//database error
+                                            _finishResponse(500, response, err_msg.db_err);
                                         }
                                         else
                                         {
-                                            connection.query("DELETE FROM inputs WHERE group_name = ? AND user = ?;",
-                                                [group, member],
-                                                function(err)
-                                                {
-                                                    if(err)
-                                                    {
-                                                        _finishResponse(ERROR, response, err_msg.db_err);
-                                                    }
-                                                    else
-                                                    {
-                                                        _finishResponse(OK, response);
-                                                    }
-                                                });
+                                            _finishResponse(200, response);
                                         }
                                     });
                             }
@@ -1025,67 +1108,82 @@
     //endregion
 
     //region Groups Updates functions
-    function _retrieveUpdates(username, group, timestamp){
+
+    function _retrieveUpdates(username, group, timestamp)
+    {//responds to a pending update subscription with all pending updates
         if(!hooks[group][username])
-        {
+        {//user is not yet subscribed for updates
             return;
         }
-        connection.query("SELECT field FROM updates WHERE group_name = ? AND user = ?",
+        connection.query(
+            "SELECT field " +
+                "FROM updates " +
+                "WHERE group_name = ? " +
+                "AND user = ?",
             [group, username],
             function(err, updates){
                 if(err)
-                {
-                    _finishResponse(ERROR, hooks[group][username], err_msg.db_err);
+                {//database error
+                    _finishResponse(500, hooks[group][username], err_msg.db_err);
                 }
                 else if(updates.length > 0) //only retrieve if there are new updates
                 {
                     var i, contents, _respondUpdates;
-                    contents = [];
-                    _respondUpdates = function(err)
-                    {
-                        if(err)
-                        {
-                            _finishResponse(ERROR, hooks[group][username], err_msg.db_err);
-                        }
-                        else
-                        {
-                            _finishResponse(OK, hooks[group][username], {updates: contents});
-                        }
-                    };
+                    contents = [];//array of updated field names
                     for(i = 0; i < updates.length; i += 1)
                     {
                         contents.push(updates[i].field);
-                        connection.query("DELETE FROM updates WHERE group_name = ? AND user = ? AND ? > time;",
-                            [group, updates[i].user, timestamp],
-                            _respondUpdates);
+                        connection.query(
+                            "DELETE FROM updates " +
+                                "WHERE group_name = ? " +
+                                "AND user = ? AND " +
+                                "? > time;",
+                            [group, username, timestamp + 6000],
+                            function(err)
+                            {
+                                if(err)
+                                {//database error
+                                    _finishResponse(500, hooks[group][username], err_msg.db_err);
+                                    hooks[group][username] = '';
+                                }
+                                else
+                                {
+                                    _finishResponse(200, hooks[group][username], {updates: contents});
+                                    hooks[group][username] = '';
+                                }
+                            });
                     }
                 }
             });
     }
 
-    function _listenUpdates(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+    function _listenUpdates(session_id, group, timestamp, limit, response){
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || !_isJSON(limit))
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         timestamp = JSON.parse(timestamp);
-        if(typeof timestamp !== 'number')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        limit = JSON.parse(limit);
+        if(typeof timestamp !== 'number' || typeof limit !== 'number')
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
-            connection.query("SELECT 1 FROM members WHERE group_name = ? AND user = ?;",
+            connection.query("SELECT 1 " +
+                "FROM members WHERE " +
+                "group_name = ? " +
+                "AND user = ?;",
                 [group, username],
                 function(err, result){
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else if(result.length === 0)
-                    {
-                        _finishResponse(INVALID, response);
+                    {//member not found
+                        _finishResponse(404, response, err_msg.not_member);
                     }
                     else
                     {
@@ -1098,59 +1196,72 @@
     //endregion
 
     //region Groups Input functions
-    function _retrieveInput(group, timestamp){
-        connection.query("SELECT host FROM groups WHERE name = ? LIMIT 1;",
+    function _retrieveInput(group, timestamp)
+    {//responds to host of a group with all pending inputs
+        connection.query(
+            "SELECT host " +
+                "FROM groups " +
+                "WHERE name = ? " +
+                "LIMIT 1;",
             [group],
             function(err, host)
             {
                 if(!hooks[group][host[0].host])
-                {
+                {//host is not listening for inputs
                     return;
                 }
-                connection.query("SELECT user, input, time FROM inputs WHERE group_name = ?",
+                connection.query(
+                    "SELECT user, input, time " +
+                        "FROM inputs " +
+                        "WHERE group_name = ?",
                     [group],
                     function(err, input)
                     {
                         if(err)
-                        {
-                            _finishResponse(ERROR, hooks[group][host[0].host], err_msg.db_err);
+                        {//database error
+                            _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
                         }
                         else if(input.length > 0)
-                        {
-                            var i, contents, _respondUpdates;
-                            contents = [];
-                            _respondUpdates = function(err)
-                            {
-                                if(err)
-                                {
-                                    _finishResponse(ERROR, hooks[group][host[0].host], err_msg.db_err);
-                                }
-                                else
-                                {
-                                    _finishResponse(OK, hooks[group][host[0].host], {updates: contents});
-                                }
-                            };
-                            for(i = 0; i < input.length; i += 1) {
+                        {//if there are any new inputs to report
+                            var i, contents;
+                            contents = [];//array of input objects
+                            for(i = 0; i < input.length; i += 1)
+                            {//clean up inputs that have already been received by host
                                 contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
-                                connection.query("DELETE FROM inputs WHERE group_name = ? AND user = ? AND input = ? AND ? > time LIMIT 1;",
-                                 [group, input[i].user, input[i].input, timestamp],
-                                 _respondUpdates);
                             }
+                            connection.query(
+                                "DELETE FROM inputs " +
+                                    "WHERE group_name = ? " +
+                                    "AND ? > time " +
+                                    "LIMIT 1;",
+                                [group, timestamp + 6000],
+                                function(err)
+                                {
+                                    if(err)
+                                    {//database error
+                                        _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
+                                    }
+                                    else
+                                    {
+                                        _finishResponse(200, hooks[group][host[0].host], {inputs: contents});
+                                    }
+                                });
                         }
                     });
             });
     }
 
+    //subscribe to inputs being sent to a group you host
     function _listenInputs(session_id, group, timestamp, response){
         if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         timestamp = JSON.parse(timestamp);
         if(typeof timestamp !== 'number')
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
@@ -1163,20 +1274,22 @@
 
     function _submitInput(session_id, group, input, response){
         if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(input))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
-            connection.query("INSERT INTO inputs VALUES (?, ?, ?, ?);",
-                [group, username, input, _getTime()],
+            connection.query(
+                "INSERT INTO inputs " +
+                    "VALUES (?, ?, ?, ?);",
+                [group, username, input, new Date().getTime()],
                 function(err){
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.incorrect_args);
+                    {//database error
+                        _finishResponse(500, response, err_msg.incorrect_args);
                     }
                     else {
-                        _finishResponse(OK, response);
+                        _finishResponse(200, response);
                         _retrieveInput(group, 0);
                     }
                 });
@@ -1187,240 +1300,219 @@
     //region Group Permissions functions
     function _insertPermissions(group, permitted_values, update_values, updated_members, response)
     {
-        connection.query("INSERT INTO permissions VALUES " + permitted_values + " ON DUPLICATE KEY UPDATE field = field",
+        connection.query(
+            "INSERT INTO permissions " +
+                "VALUES " + permitted_values +
+                " ON DUPLICATE KEY UPDATE field = field",
             function(err)
             {
                 if(err)
-                {
-                    _finishResponse(ERROR, response, err_msg.db_err);
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
                 else
                 {
-                    connection.query("INSERT INTO updates VALUES" + update_values +
-                        "ON DUPLICATE KEY UPDATE time=VALUES(time);", function(err)
-                    {
-                        if(err)
+                    connection.query(
+                        "INSERT INTO updates " +
+                            "VALUES" + update_values +
+                            " ON DUPLICATE KEY UPDATE " +
+                            "time = VALUES(time);",
+                        function(err)
                         {
-                            _finishResponse(ERROR, response, err_msg.db_err);
-                        }
-                        else
-                        {
-                            var i;
-                            _finishResponse(OK, response);
-                            for (i = 0; i < updated_members.length; i += 1)
-                            {
-                                _retrieveUpdates(updated_members[i], group, 0);
+                            if(err)
+                            {//database error
+                                _finishResponse(500, response, err_msg.db_err);
                             }
-                        }
-                    });
+                            else
+                            {
+                                var i;
+                                _finishResponse(200, response);
+                                for (i = 0; i < updated_members.length; i += 1)
+                                {//tell all affected members they have new updates
+                                    _retrieveUpdates(updated_members[i], group, 0);
+                                }
+                            }
+                        });
                 }
             });
     }
 
-    function _setPermissions(session_id, group, field, members, permissions, response)
-    {
+    function _formatPermissions(fields, members, permissions, username)
+    {//returns false if failure, object containing formatted field, members, and permissions if success
         var i, j;
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(field))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
+        //format the fields parameter into a single dimensional array of field names
+        if(!_isJSON(fields))
+        {//if field isn't json, invalid argument
+            return false;
         }
-        field = JSON.parse(field);
-        if(typeof field === 'string')
-        {
-            field = [field];
+        fields = JSON.parse(fields);
+        if(typeof fields === 'string')
+        {//turn single string field into a 1-element array
+            fields = [fields];
         }
-        else if(!(field instanceof Array) || field.length === 0)
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
+        else if(!(fields instanceof Array) || fields.length === 0)
+        {//if not an array and not a string, or if array of length 0, invalid argument
+            return false;
         }
-        if(permissions) //need to check permission arguments now to prevent false success message before checking in the set step
+        //format member into an array of names. if none present, array should contain host as sole element
+        if(!members)
+        { //set host as target member, which means universal permissions
+            members = [username];
+        }
+        else if(_isJSON(members))
         {
-            var permissions_array;
-            if(!_isJSON(permissions) || (members && !_isJSON(members)))
-            {
-                _finishResponse(INVALID, response, err_msg.incorrect_args);
-                return;
+            members = JSON.parse(members);
+            if(typeof members === 'string')
+            {//turn string into array
+                members = [members];
             }
-            permissions = JSON.parse(permissions);
-            if(members)
+            else if(members instanceof Array)
             {
-                members = JSON.parse(members);
-                if(typeof members === 'string') //permissions set for a single member
+                for(i = 0; i < members.length; i +=1)
                 {
-                    var members_array = [];
-                    for(i = 0; i < field.length; i += 1)
-                    {
-                        members_array[i] = members;
-                    }
-                    members = members_array;
-                }
-                else if(!(members instanceof Array))
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
-                    return;
-                }
-                for(i = 0; i < members.length; i += 1)
-                {
-                    if(typeof members[i] !== 'string')
-                    {
-                        _finishResponse(INVALID, response, err_msg.incorrect_args);
+                    if(typeof(members[i]) !== 'string')
+                    {//must be either string or array of strings
                         return;
                     }
-                }
-            }
-            if(typeof permissions === 'boolean') //a single permission for all fields
-            {
-                permissions_array = [];
-                for(i = 0; i < field.length; i += 1)
-                {
-                    if(members) //permission applies to only members specified
-                    {
-                        permissions_array[i] = [];
-                        for(j = 0; j < members.length; j += 1)
-                        {
-                            permissions_array[i][j] = permissions;
-                        }
-                    }
-                    else
-                    {
-                        permissions_array[i] = [permissions];
-                    } //permission applies to all users
-                }
-                permissions = permissions_array;
-            }
-            else if(permissions instanceof Array && permissions.length === field.length)
-            {
-                var array_of;
-                if(typeof permissions[0] === 'boolean')
-                {
-                    array_of = 'boolean';
-                }
-                else if(permissions[0] instanceof Array)
-                {
-                    array_of = 'array';
-                }
-                for(i = 0; i < permissions.length; i += 1)
-                {
-                    if((array_of === 'boolean' && typeof permissions[i] !== 'string') ||
-                        (array_of === 'array' && !(permissions[i] instanceof Array)))
-                    {
-                        _finishResponse(INVALID, response, err_msg.incorrect_args);
-                        return;
-                    }
-                    if(array_of === 'array')
-                    {
-                        for(j = 0; j < members.length; j += 1)
-                        {
-                            if(typeof permissions[i][j] !== 'boolean')
-                            {
-                                _finishResponse(INVALID, response, err_msg.incorrect_args);
-                                return;
-                            }
-                        }
-                    }
-                }
-                if(array_of === 'boolean') //a different permission set for each field
-                {
-                    permissions_array = [];
-                    for(i = 0; i < field.length; i += 1)
-                    {
-                        if(members)
-                        {
-                            permissions_array[i] = [];
-                            for(j = 0; j <members.length; j += 1)
-                            {
-                                permissions_array[i][j] = permissions[i];
-                            }
-                        }
-                        else
-                        {
-                            permissions_array[i] = [permissions[i]];
-                        }
-                    }
-                    permissions = permissions_array;
-                }
-                else if(array_of !== 'array')//different permissions for each field and member
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
-                    return;
                 }
             }
             else
-            {
-                _finishResponse(INVALID, response, err_msg.incorrect_args);
+            {//must be either string or array of strings
                 return;
             }
         }
+        else
+        {//not the right type, cannot format
+            return;
+        }
+        //format permissions into 2-dimensional array of booleans
+        if(!permissions)
+        {
+            permissions = JSON.stringify(true);
+        }
+        if(_isJSON(permissions))
+        {
+            permissions = JSON.parse(permissions);
+            if(typeof permissions === 'boolean')
+            {
+                permissions = [permissions];
+            }
+            if(!(permissions instanceof Array))
+            {
+                return;
+            }
+            for(i = 0; i < fields.length; i += 1)
+            {
+                if(permissions[i] === undefined)
+                {
+                    permissions[i] = permissions[0];
+                }
+                if(typeof permissions[i] === 'boolean')
+                {
+                    permissions[i] = [permissions[i]];
+                }
+                if(!(permissions[i] instanceof Array))
+                {
+                    return;
+                }
+                for(j = 0; j < members.length; j += 1)
+                {
+                    if(permissions[i][j] === undefined)
+                    {
+                        permissions[i][j] = permissions[i][0];
+                    }
+                    if(typeof permissions[i][j] !== 'boolean')
+                    {
+                        return
+                    }
+                }
+            }
+        }
+        else
+        {
+            return;
+        }
+        return {fields: fields, members: members, permissions: permissions};
+    }
+
+    function _setPermissions(session_id, group, fields, members, permissions, response)
+    {
         _checkCredentials(session_id, response, function(username)
         {
-            _checkHost(username, group, response, function(){
-                var permitted_values, forbidden_values, update_values, shared_fields, updated_members;
-                permitted_values = '';
-                forbidden_values = '';
-                update_values = '';
-                updated_members = [];
-                if(!members)
+            _checkHost(username, group, response, function()
+            {
+                var formatted = _formatPermissions(fields, members, permissions, username);
+                if(!formatted || typeof session_id !== 'string' || typeof group !== 'string')
                 {
-                    members = [username];
-                } //if no member specified, use host to indicate permission is for all
-                for(i = 0; i < field.length; i += 1)
-                {
-                    for(j = 0; j < members.length; j += 1)
-                    {
-                        if(permissions[i][j]) //granting permission
+                    _finishResponse(400, response, err_msg.incorrect_arg);
+                    return;
+                }
+                var i, j, permitted_values, forbidden_values, update_values, shared_fields, updated_members;
+                permitted_values = ''; //values to be inserted into the permissions table
+                forbidden_values = '';//values to be removed from the permissions table
+                update_values = ''; //values to be inserted into the updates table
+                updated_members = []; //array of names of users who have new updates from this function call
+                for(i = 0; i < formatted.fields.length; i += 1)
+                {//for each field
+                    for(j = 0; j < formatted.members.length; j += 1)
+                    {//for each member
+                        if(formatted.permissions[i][j]) //granting permission
                         {
-                            if(updated_members.indexOf(members[j]) === -1 && members[j] !== username)
-                            {
-                                updated_members.push(members[j]);
+                            if(updated_members.indexOf(formatted.members[j]) === -1 &&
+                                formatted.members[j] !== username)
+                            { //add members[j] to updated list if not already in it
+                                updated_members.push(formatted.members[j]);
                             }
                             shared_fields = "("
                                 + connection.escape(group) + ","
-                                + connection.escape(members[j]) + ","
-                                + connection.escape(field[i]);
+                                + connection.escape(formatted.members[j]) + ","
+                                + connection.escape(formatted.fields[i]);
                             permitted_values += shared_fields + "),";
-                            update_values += shared_fields + ',' + _getTime() + "),";
+                            update_values += shared_fields + ',' + new Date().getTime() + "),";
                         }
                         else //revoking permission
                         {
                             forbidden_values +=
-                                " (field = " + connection.escape(field[i]) +
-                                    " AND user = " + connection.escape(members[j]) + ") OR";
+                                " (field = " + connection.escape(formatted.fields[i]) +
+                                    " AND user = " + connection.escape(formatted.members[j]) + ") OR";
                         }
                     }
-                }
-                if(forbidden_values)
-                {
-                    forbidden_values = forbidden_values.slice(0, -2);
-                    connection.query("DELETE FROM permissions WHERE group_name = ? AND ( " + forbidden_values + " );",
-                        [group], function(err)
-                        {
-                            if(err)
+                    if(forbidden_values)
+                    {
+                        forbidden_values = forbidden_values.slice(0, -2); //cut off trailing OR
+                        connection.query(
+                            "DELETE FROM permissions " +
+                                "WHERE group_name = ? " +
+                                "AND ( " + forbidden_values + " );",
+                            [group],
+                            function(err)
                             {
-                                _finishResponse(ERROR, response, err_msg.db_err);
-                            }
-                            else if(permitted_values)
-                            {
-                                permitted_values = permitted_values.slice(0, -1);
-                                update_values = update_values.slice(0, -1);
-                                _insertPermissions(group, permitted_values, update_values, updated_members, response);
-                            }
-                            else
-                            {
-                                _finishResponse(OK, response);
-                            }
-                        });
-                }
-                else if(permitted_values)
-                {
-                    permitted_values = permitted_values.slice(0, -1);
-                    update_values = update_values.slice(0, -1);
-                    _insertPermissions(group, permitted_values, update_values, updated_members, response);
-                }
-                else
-                {
-                    _finishResponse(OK, response);
+                                if(err)
+                                {//database error
+                                    _finishResponse(500, response, err_msg.db_err);
+                                }
+                                else if(permitted_values)
+                                {//new permissions were granted, so notify users
+                                    permitted_values = permitted_values.slice(0, -1);//cut off trailing commas
+                                    update_values = update_values.slice(0, -1);//cut off trailing commas
+                                    _insertPermissions(group, permitted_values, update_values, updated_members, response);
+                                }
+                                else
+                                {
+                                    _finishResponse(200, response);
+                                }
+                            });
+                    }
+                    else if(permitted_values)
+                    {
+                        permitted_values = permitted_values.slice(0, -1);
+                        update_values = update_values.slice(0, -1);
+                        _insertPermissions(group, permitted_values, update_values, updated_members, response);
+                    }
+                    else
+                    {
+                        _finishResponse(200, response);
+                    }
                 }
             });
         });
@@ -1428,187 +1520,74 @@
     //endregion
 
     //region Group Data functions
-    function _submitUpdates(session_id, group, field, data, permissions, members, response)//submit data and notify users
+
+    function _submitUpdates(session_id, group, fields, data, members, permissions, response)
     {
-        var i, j;
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(field) || !_isJSON(data))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
-        }
-        field = JSON.parse(field);
-        data = JSON.parse(data);
-        if(typeof field === 'string')
-        {
-            field = [field];
-            data = [data];
-        }
-        else if(!(field instanceof Array) || !(data instanceof Array) || field.length !== data.length || field.length === 0)
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
-            return;
-        }
-        if(permissions) //need to check permission arguments now to prevent false success message before checking in the set step
-        {
-            var permissions_array;
-            if(!_isJSON(permissions) || (members && !_isJSON(members)))
-            {
-                _finishResponse(INVALID, response, err_msg.incorrect_args);
-                return;
-            }
-            permissions = JSON.parse(permissions);
-            if(members)
-            {
-                members = JSON.parse(members);
-                if(typeof members === 'string') //permissions set for a single member
-                {
-                    var members_array = [];
-                    for(i = 0; i < field.length; i += 1)
-                    {
-                        members_array[i] = members;
-                    }
-                    members = members_array;
-                }
-                else if(!(members instanceof Array))
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
-                    return;
-                }
-                for(i = 0; i < members.length; i += 1)
-                {
-                    if(typeof members[i] !== 'string')
-                    {
-                        _finishResponse(INVALID, response, err_msg.incorrect_args);
-                        return;
-                    }
-                }
-            }
-            if(typeof permissions === 'boolean') //a single permission for all fields
-            {
-                permissions_array = [];
-                for(i = 0; i < field.length; i += 1)
-                {
-                    if(members) //permission applies to only members specified
-                    {
-                        permissions_array[i] = [];
-                        for(j = 0; j < members.length; j += 1)
-                        {
-                            permissions_array[i][j] = permissions;
-                        }
-                    }
-                    else
-                    {
-                        permissions_array[i] = [permissions];
-                    } //permission applies to all users
-                }
-                permissions = permissions_array;
-            }
-            else if(permissions instanceof Array && permissions.length === field.length)
-            {
-                var array_of;
-                if(typeof permissions[0] === 'boolean')
-                {
-                    array_of = 'boolean';
-                }
-                else if(permissions[0] instanceof Array)
-                {
-                    array_of = 'array';
-                }
-                for(i = 0; i < permissions.length; i += 1)
-                {
-                    if((array_of === 'boolean' && typeof permissions[i]  !== 'boolean') ||
-                        (array_of === 'array' && !(permissions[i] instanceof Array)))
-                    {
-                        _finishResponse(INVALID, response, err_msg.incorrect_args);
-                        return;
-                    }
-                    if(array_of === 'array')
-                    {
-                        for(j = 0; j < members.length; j += 1)
-                        {
-                            if(typeof(permissions[i][j]) !== 'boolean')
-                            {
-                                _finishResponse(INVALID, response, err_msg.incorrect_args);
-                                return;
-                            }
-                        }
-                    }
-                }
-                if(array_of === 'boolean') //a different permission set for each field
-                {
-                    permissions_array = [];
-                    for(i = 0; i < field.length; i += 1)
-                    {
-                        if(members)
-                        {
-                            permissions_array[i] = [];
-                            for(j = 0; j <members.length; j += 1)
-                            {
-                                permissions_array[i][j] = permissions[i];
-                            }
-                        }
-                        else
-                        {
-                            permissions_array[i] = [permissions[i]];
-                        }
-                    }
-                    permissions = permissions_array;
-                }
-                else if(array_of !== 'array')//different permissions for each field and member
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
-                    return;
-                }
-            }
-            else
-            {
-                _finishResponse(INVALID, response, err_msg.incorrect_args);
-                return;
-            }
-        }
         _checkCredentials(session_id, response, function(username)
         {
             _checkHost(username, group, response, function()
             {
-                var data_values, query_fields;
+                var formatted = _formatPermissions(fields, members, permissions, username);
+                if(!formatted || typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(data))
+                {
+                    _finishResponse(400, response, err_msg.incorrect_arg);
+                    return;
+                }
+                data = JSON.parse(data);
+                if(formatted.fields.length === 1)
+                {//data should be interpreted as a single element if only one field
+                    data = [data];
+                }
+                else if(!(data instanceof Array) || formatted.fields.length !== data.length)
+                {//incorrect argument
+                    _finishResponse(400, response, err_msg.incorrect_args);
+                    return;
+                }
+                var i, data_values, query_fields;
                 data_values = '';
                 query_fields = '';
-                for(i = 0; i < field.length; i += 1)
+                for(i = 0; i < formatted.fields.length; i += 1)
                 {
-                    if(typeof(field[i]) !== 'string')
-                    {
-                        _finishResponse(INVALID, response, err_msg.incorrect_args);
+                    if(typeof(formatted.fields[i]) !== 'string')
+                    {//incorrect argument type
+                        _finishResponse(400, response, err_msg.incorrect_args);
                         return;
                     }
                     data_values += "("
                         + connection.escape(group) + ","
-                        + connection.escape(field[i]) + ","
+                        + connection.escape(formatted.fields[i]) + ","
                         + connection.escape(JSON.stringify(data[i])) + ")";
-                    query_fields += "field = " + connection.escape(field[i]);
-                    if(i < field.length -1)
+                    query_fields += "field = " + connection.escape(formatted.fields[i]);
+                    if(i < formatted.fields.length -1)
                     {
                         data_values += ",";
                         query_fields += " OR ";
                     }
                 }
-                connection.query("INSERT INTO group_data VALUES " +data_values+
-                    " ON DUPLICATE KEY UPDATE data = VALUES(data);",
+                connection.query(
+                    "INSERT INTO group_data " +
+                        "VALUES " +data_values+
+                        " ON DUPLICATE KEY " +
+                        "UPDATE data = VALUES(data);",
                     function(err)
                     {
                         if(err)
-                        {
-                            _finishResponse(ERROR, response, err_msg.db_err);
+                        {//database error
+                            _finishResponse(500, response, err_msg.db_err);
                         }
                         else
                         {
-                            connection.query("SELECT user, field FROM permissions WHERE group_name = ? AND" +
-                                "(" + query_fields + ");",
+                            connection.query(
+                                "SELECT user, field " +
+                                    "FROM permissions " +
+                                    "WHERE group_name = ? " +
+                                    "AND" +"(" + query_fields + ");",
                                 [group],
                                 function(err, result)
                                 {
                                     if(err)
-                                    {
-                                        _finishResponse(ERROR, response, err_msg.db_err);
+                                    {//database error
+                                        _finishResponse(500, response, err_msg.db_err);
                                     }
                                     else
                                     {
@@ -1624,7 +1603,7 @@
                                                 + connection.escape(group) + ','
                                                 + connection.escape(result[i].user) + ','
                                                 + connection.escape(result[i].field) + ','
-                                                + _getTime() + ')';
+                                                + new Date().getTime() + ')';
                                             if(i < result.length - 1)
                                             {
                                                 update_values +=  ',';
@@ -1637,8 +1616,8 @@
                                                 function(err)
                                                 {
                                                     if(err)
-                                                    {
-                                                        _finishResponse(ERROR, response, err_msg.db_err);
+                                                    {//database error
+                                                        _finishResponse(500, response, err_msg.db_err);
                                                     }
                                                     else
                                                     {
@@ -1651,14 +1630,14 @@
                                                             _setPermissions(
                                                                 session_id,
                                                                 group,
-                                                                JSON.stringify(field),
-                                                                JSON.stringify(members),
-                                                                JSON.stringify(permissions),
+                                                                JSON.stringify(formatted.fields),
+                                                                JSON.stringify(formatted.members),
+                                                                JSON.stringify(formatted.permissions),
                                                                 response);
                                                         }
                                                         else
                                                         {
-                                                            _finishResponse(OK, response);
+                                                            _finishResponse(200, response);
                                                         }
                                                     }
                                                 });
@@ -1670,14 +1649,14 @@
                                                 _setPermissions(
                                                     session_id,
                                                     group,
-                                                    JSON.stringify(field),
-                                                    JSON.stringify(members),
-                                                    JSON.stringify(permissions),
+                                                    JSON.stringify(formatted.fields),
+                                                    JSON.stringify(formatted.members),
+                                                    JSON.stringify(formatted.permissions),
                                                     response);
                                             }
                                             else
                                             {
-                                                _finishResponse(OK, response);
+                                                _finishResponse(200, response);
                                             }
                                         }
                                     }
@@ -1691,28 +1670,28 @@
     function _getGroupData(session_id, group, field, response)
     {
         if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(field))
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//argument is wrong type
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         field = JSON.parse(field);
         if(typeof field === 'string')
-        {
+        {//make field into an 1-element array if string
             field = [field];
         }
         else if(!(field instanceof Array) || field.length === 0)
-        {
-            _finishResponse(INVALID, response, err_msg.incorrect_args);
+        {//field must be an array of at least length 1
+            _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username)
         {
             var i, query_fields;
-            query_fields = '';
+            query_fields = '';//fields to get data from
             for(i = 0; i < field.length; i += 1){
                 if(typeof field[i] !== 'string')
-                {
-                    _finishResponse(INVALID, response, err_msg.incorrect_args);
+                {//argument is of incorrect type
+                    _finishResponse(400, response, err_msg.incorrect_args);
                     return;
                 }
                 query_fields += "field = " + connection.escape(field[i]);
@@ -1726,23 +1705,23 @@
                 function(err, host)
                 {
                     if(err)
-                    {
-                        _finishResponse(ERROR, response, err_msg.db_err);
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else if(host.length === 0)
-                    {
-                        _finishResponse(INVALID, response, err_msg.no_group);
+                    {//group doesnt exist
+                        _finishResponse(404, response, err_msg.no_group);
                     }
                     else if(host[0].host === username)
-                    {
+                    {//if host is requesting data, skip checking permissions
                         connection.query("SELECT field, data FROM group_data WHERE group_name = ? AND " +
                             "(" + query_fields + ");",
                             [group],
                             function(err, result)
                             {
                                 if(err)
-                                {
-                                    _finishResponse(ERROR, response, err_msg.db_err);
+                                {//database error
+                                    _finishResponse(500, response, err_msg.db_err);
                                 }
                                 else
                                 {
@@ -1751,7 +1730,7 @@
                                     {
                                         data[result[i].field] = JSON.parse(result[i].data);
                                     }
-                                    _finishResponse(OK, response, {data: data});
+                                    _finishResponse(200, response, {data: data});
                                 }
                             });
                     }
@@ -1764,8 +1743,8 @@
                             function(err, result)
                             {
                                 if(err)
-                                {
-                                    _finishResponse(ERROR, response, err_msg.db_err);
+                                {//database error
+                                    _finishResponse(500, response, err_msg.db_err);
                                 }
                                 else
                                 {
@@ -1787,7 +1766,7 @@
                                             {
                                                 if(err)
                                                 {
-                                                    _finishResponse(ERROR, response, err_msg.db_err);
+                                                    _finishResponse(500, response, err_msg.db_err);
                                                 }
                                                 else{
                                                     var data = {};
@@ -1795,13 +1774,13 @@
                                                     {
                                                         data[result[i].field] = JSON.parse(result[i].data);
                                                     }
-                                                    _finishResponse(OK, response, {data: data});
+                                                    _finishResponse(200, response, {data: data});
                                                 }
                                             });
                                     }
                                     else
                                     {
-                                        _finishResponse(OK, response, {data: {}});
+                                        _finishResponse(200, response, {data: {}});
                                     }
                                 }
                             });
@@ -1840,7 +1819,7 @@
                             _respondOptions('GET, POST, DELETE, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/users/session":
@@ -1856,7 +1835,7 @@
                             _respondOptions('PUT, DELETE, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/users/password":
@@ -1872,7 +1851,7 @@
                             _respondOptions('GET, PUT, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/users/data":
@@ -1891,7 +1870,7 @@
                             _respondOptions('GET, PUT, DELETE, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups":
@@ -1910,20 +1889,7 @@
                             _respondOptions('GET, POST, DELETE, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
-                    }
-                    break;
-                case "/groups/password":
-                    switch(request.method)
-                    {
-                        case "POST":
-                            _checkGroupPassword(parsed_url.query.group, data, response);
-                            break;
-                        case "OPTIONS":
-                            _respondOptions('POST, OPTIONS', response);
-                            break;
-                        default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups/members":
@@ -1942,7 +1908,7 @@
                             _respondOptions('GET, POST, DELETE, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups/data":
@@ -1964,7 +1930,7 @@
                             _respondOptions('GET, PUT, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups/data/permissions":
@@ -1977,7 +1943,7 @@
                             _respondOptions('PUT, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups/updates":
@@ -1989,7 +1955,7 @@
                             _respondOptions('GET, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 case "/groups/input":
@@ -2004,11 +1970,11 @@
                             _respondOptions('GET, POST, OPTIONS', response);
                             break;
                         default:
-                            _finishResponse(INVALID, response, err_msg.request_err);
+                            _finishResponse(400, response, err_msg.request_err);
                     }
                     break;
                 default:
-                    _finishResponse(INVALID, response, err_msg.request_err);
+                    _finishResponse(400, response, err_msg.request_err);
             }
         });
     }
@@ -2021,4 +1987,4 @@
     _initDatabase();
     http.createServer(_processRequest).listen(port);
     //endregion
-}() );
+} () );
