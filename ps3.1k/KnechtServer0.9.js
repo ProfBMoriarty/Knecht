@@ -11,7 +11,7 @@
     {
         host: 'localhost',
         user: 'root',
-        password:'',
+        password:'V3n3diggM',
         reconnect_delay: 2000,
         column_size: //Note: field size variables only apply if tables do not already exist in the database
         {
