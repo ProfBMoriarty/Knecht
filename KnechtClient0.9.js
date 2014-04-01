@@ -69,8 +69,8 @@ var K = {};
      * This function is used as a callback for server requests.
      * @param status is an integer that is the status of the request to the server
      * @param result is the result of the query
-     * @param fp is a function that...
-     * @param fn is...
+     * @param fp is a function from this file that accesses the server
+     * @param fn is a string that is the name of fp
      * @param args is an array of 5 arguments suitable for the fp function
      * @param callback a function to be called once a response is received from the server
      */
@@ -269,6 +269,16 @@ var K = {};
     //endregion
 
     //region User Password API functions
+
+    /**
+     * Causes an email to be sent to the given email address with the registered password
+     * @parm username is a string that is the email address used to identify the account in question
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
+     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        error: if present, a string specifying the error that occurred processing the request
+     */
     K.recoverPassword = function(username, callback)
     {
         _sendRequest("GET",
@@ -284,6 +294,15 @@ var K = {};
             });
     };
 
+    /**
+     * Changes the password of the currently logged in account.
+     * @parm new_password is a string that is the new password of the account
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
+     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        error: if present, a string specifying the error that occurred processing the request
+     */
     K.changePassword = function(new_password, callback)
     {
         _sendRequest("PUT",
