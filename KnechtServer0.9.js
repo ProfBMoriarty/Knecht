@@ -76,6 +76,7 @@
             }
         });
     }
+    //initialize the database
     function _initDatabase()
     { //create necessary database tables if they do not yet exist
         function _checkInitError(err)
@@ -242,6 +243,12 @@
     //endregion
 
     //region Response Functions
+
+    /** This function constructs a well formatted response for ajax and returns it to the requesting client.
+     * @param status is an integer that is a standard HTTP response code indicated the success or failure of the request
+     * @param response is the http request that is waiting for the response from the server.
+     * @param body this is an object that is the server's response to the query that this function is answering
+     */
     function _finishResponse(status, response, body)
     {//applies headers to an http response and sends it to the client
         if(!body)
@@ -261,6 +268,10 @@
         console.log(JSON.stringify(body));
     }
 
+    /** This function returns a list of valid requests.
+     * @param methods is a string that lists the valid http requests that can be made to this uri
+     * @param response is the http request that is waiting for the response from the server
+     */
     function _respondOptions(methods, response)
     { //sends an OPTIONS response to the client listing allowed methods on the requested resource
         response.writeHead(200,
@@ -294,8 +305,12 @@
 
     //region Credentials Functions
 
-    /*responds with an error if the provided session is invalid or expired, otherwise executes callback with the name of
-    the associated user as its sole parameter*/
+    /** This function responds with an error if the provided session is invalid or expired, otherwise executes callback
+     * with the name of the associated user as its sole parameter
+     * @param session is a string that is the session key of an active session
+     * @param response is the http response object that is waiting for the response of this request
+     * @param callback is the server side function that needs the credentials verified before it can execute
+     */
     function _checkCredentials(session, response, callback)
     {
         connection.query(
@@ -341,8 +356,13 @@
             });
     }
 
-    /*responds with an error if the provided group does not exist or if it is not hosted by the provided user, otherwise
-    executes callback with no parameters*/
+    /** This function responds with an error if the provided group does not exist or if it is not hosted by the provided
+     *  user, otherwise executes callback with no parameters
+     * @param username is a string that is a username, hopefully the username of the host of the group
+     * @param group is a string that is the name of the that username is supposedly the host of
+     * @param response is the http response object that is waiting for the response of this request
+     * @param callback is the function that will be executed if the host is valid
+     */
     function _checkHost(username, group, response, callback)
     {
         connection.query(
@@ -375,7 +395,10 @@
 
     //region User functions
 
-    //responds with member registered of type boolean. registered is true if user exists on server, otherwise false
+    /** this function returns a boolean to the client that is true if the given member is registered, else false
+     * @param username is a string that is the username to be checked for use
+     * @param response is the http response object that is waiting for the response of this request
+     */
     function _checkUserRegistered(username, response)
     {
         if( typeof username !== 'string' )
@@ -405,6 +428,14 @@
                 }
             });
     }
+
+    /** This functions adds a new account to the database.
+     * @param username is a string that is the username and possible email address of the new account.
+     * @param password is a string that is the password of the new account.
+     * @param timeout is a string that names an integer ex. '15' or '60'.  It is the number of minutes this account waits
+     * before expiring session keys.
+     * @param response is the http response object that is waiting for the response of this request
+     */
 
     function _register(username, password, timeout, response)
     {//responds with member session of type string if successful. value is initial session_id
@@ -444,6 +475,11 @@
                 } //user registered and logged in successfully
             });
     }
+
+    /** Removes the given account from the database.
+     * @param session_id is a string that identifies which currently logged in account is to be deleted.
+     * @param response is the http response object that is waiting for the response of this request
+     */
 
     function _unregister(session_id, response)
     {//removes user and all associated db entries if successful
@@ -512,6 +548,11 @@
     //region User Session functions
 
     //responds with member session of type string if successful, with session_id as value. Invalidates previous session
+    /** This function creates a new session key for the account with the given username and password.
+     * @param username is a string that is the username of the account to log in.
+     * @param password is a string that is the password of the account to log in.
+     * @param response is the http response object that is waiting for the response of this request
+     */
     function _login(username, password, response)
     {
         if(typeof username !== 'string' || !_isJSON(password))
@@ -569,6 +610,10 @@
             });
     }
 
+    /** This function expires the given session_id if it is valid.
+     * @param session_id is a string that is the session id to be expired.
+     * @param response is the http response object that is waiting for the response of this request
+     */
     function _logout(session_id, response)
     {//expires session_id if successful
         if(typeof session_id !== 'string')
@@ -602,6 +647,11 @@
 
     //region User Password functions
 
+    /** This function will send an email with the user's password to their email address, if it ever gets implemented.
+     * @param username is a string that is a username of a registered account and also a valid email address.
+     * @param response is the http response object that is waiting for the response of this request.
+     */
+
     function _recoverPassword(username, response)
     {//treats username as an email address to send password details to
         if(typeof username !== 'string')
@@ -631,6 +681,12 @@
                 }
             });
     }
+
+    /** This function alters the password of account associated with the given session id.
+     * @param session_id is a string that is the session id of the account, the password of which is to be changed.
+     * @param password is a string that is the account's new password.
+     * @param response is the http response object that is waiting for the response of this request.
+     */
 
     function _changePassword(session_id, password, response)
     {
