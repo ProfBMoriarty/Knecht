@@ -670,17 +670,25 @@ var K = {};
      *        error: if present, a string specifying the error that occurred processing the request
      *        updates: if present, an array of strings identifying fields whose data needs to be re-read
      *        If not defined and status ok, membership in group has been terminated
+     *        data: if present, an object containing the new data values for fields of size less than the limit
+     * @param limit number indicating maximum size in bytes of data to be retrieved. Only the field name will be sent if data
+     *        exceeds limit. No limit is set if this parameter is undefined
      * @param timestamp number indicating when the last update was sent. used for garbage cleaning old notifications from server
      */
-    K.listenUpdates = function(group, callback, timestamp)
+    K.listenUpdates = function(group, callback, limit, timestamp)
     {
         if(!timestamp)
         {
             timestamp = 0;
         }
+        if(!limit)
+        {
+            limit = Number.MAX_VALUE;
+        }
         _sendRequest( "GET",
             "/groups/updates?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
+                "&limit=" + encodeURIComponent(limit) +
                 "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
             function ( status, result )
             {
