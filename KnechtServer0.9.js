@@ -27,7 +27,7 @@
     {
         request_err: {error: 'Unsupported Request'},//the request received is not supported by this server
         db_err: {error: 'Database Error'}, //an error has occurred during a query to the MYSQL database
-        incorrect_arg: {error: 'Incorrect Argument'}, //one or more arguments to the requested function is incorrect
+        incorrect_args: {error: 'Incorrect Argument'}, //one or more arguments to the requested function is incorrect
         invalid_session: {error:'Invalid Session ID'}, //the provided session token does not match the one stored
         expired_session: {error: 'Expired Session ID'}, //the provided session token matches but has expired
         no_user: {error: 'User Doesn\'t Exist'}, //the provided user does not exist in the database
@@ -50,6 +50,9 @@
 
     //members are group names with object values, whose members are user names with pending response values
     var hooks = {};
+    //members are group names with object values, whose members are user names with number values that are size limits
+    //for data to be retrieved on update
+    var update_size_limits = {};
 
     //endregion
 
@@ -93,7 +96,7 @@
             //set knecht as the active database
             connection.query('USE knecht;', function(use_knecht_err)
             {
-               _checkInitError(use_knecht_err);
+                _checkInitError(use_knecht_err);
                 //create table containing user IDs and authentication variables
                 connection.query('CREATE TABLE IF NOT EXISTS users(' + //each entry represents a single knecht account
                     //name of the account
@@ -787,7 +790,7 @@
     }
 
     /*field can be either a single string or an array of string. Responds with member data of type object, with members
-    corresponding to field names with the appropriate data as values*/
+     corresponding to field names with the appropriate data as values*/
     function _getData(session_id, app, field, response)
     {
         if(typeof session_id !== 'string' || typeof app !== 'string' || !_isJSON(field))
@@ -955,21 +958,21 @@
             "SELECT name " +
                 "FROM groups " +
                 "WHERE app = ?;", [app], function(err, result)
-        {
-            if(err)
-            {//database error
-                _finishResponse(500, response, err_msg.db_err);
-            }
-            else
-            {//process result into an array of group names
-                var i, group_list = [];
-                for(i = 0; i < result.length; i += 1)
-                {
-                    group_list.push(result[i].name);
+            {
+                if(err)
+                {//database error
+                    _finishResponse(500, response, err_msg.db_err);
                 }
-                _finishResponse(200, response, {groups: group_list});
-            }
-        });
+                else
+                {//process result into an array of group names
+                    var i, group_list = [];
+                    for(i = 0; i < result.length; i += 1)
+                    {
+                        group_list.push(result[i].name);
+                    }
+                    _finishResponse(200, response, {groups: group_list});
+                }
+            });
     }
 
     function _closeGroup(session_id, group, response)
@@ -1184,19 +1187,31 @@
                 }
                 else if(updates.length > 0) //only retrieve if there are new updates
                 {
-                    var i, contents, _respondUpdates;
-                    contents = [];//array of updated field names
+                    var i, fields, data, query_fields, _respondUpdates;
+                    fields = [];//array of updated field names
                     for(i = 0; i < updates.length; i += 1)
                     {
-                        contents.push(updates[i].field);
+                        fields.push(updates[i].field);
                     }
+                    //construct the part of the query string that finds data only of updated fields
+                    query_fields = '';
+                    for(i = 0; i < fields.length; i += 1)
+                    {
+                        query_fields += "field = " + connection.escape(fields[i]);
+                        if(i < fields.length -1)
+                        {
+                            query_fields += " OR ";
+                        }
+                    }
+                    //retrieve data values under size limit for all updated fields
                     connection.query(
-                        "DELETE FROM updates " +
+                        "SELECT field, data " +
+                            "FROM group_data " +
                             "WHERE group_name = ? " +
-                            "AND user = ? AND " +
-                            "? > time;",
-                        [group, username, timestamp + 1000],
-                        function(err)
+                            "AND " + "(" + query_fields + ") " +
+                            "AND ? > CHAR_LENGTH(data);",
+                        [group, update_size_limits[group][username]],
+                        function(err, data_result)
                         {
                             if(err)
                             {//database error
@@ -1204,33 +1219,56 @@
                             }
                             else
                             {
-                                _finishResponse(200, hooks[group][username], {updates: contents});
+                                data = {};//object of field name : data pairs
+                                for(i = 0; i < data_result.length; i += 1)
+                                {
+                                    data[data_result.field] = JSON.parse(data_result.data);
+                                }
+                                connection.query(
+                                    "DELETE FROM updates " +
+                                        "WHERE group_name = ? " +
+                                        "AND user = ? AND " +
+                                        "? > time;",
+                                    [group, username, timestamp + 1000],
+                                    function(err)
+                                    {
+                                        if(err)
+                                        {//database error
+                                            _finishResponse(500, hooks[group][username], err_msg.db_err);
+                                        }
+                                        else
+                                        {
+                                            _finishResponse(200, hooks[group][username], {updates: fields, data: data});
+                                        }
+                                    });
                             }
-                        });
+                        }
+                    )
                 }
             });
     }
 
     function _listenUpdates(session_id, group, timestamp, limit, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || !_isJSON(limit))
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || typeof limit !== 'number')
         {//argument is wrong type
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         timestamp = JSON.parse(timestamp);
-        limit = JSON.parse(limit);
-        if(typeof timestamp !== 'number' || typeof limit !== 'number')
+        if(typeof timestamp !== 'number')
         {//argument is wrong type
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
-            connection.query("SELECT 1 " +
-                "FROM members WHERE " +
-                "group_name = ? " +
-                "AND user = ?;",
+            connection.query(
+                "SELECT 1 " +
+                    "FROM members WHERE " +
+                    "group_name = ? " +
+                    "AND user = ?;",
                 [group, username],
-                function(err, result){
+                function(err, result)
+                {
                     if(err)
                     {//database error
                         _finishResponse(500, response, err_msg.db_err);
@@ -1242,6 +1280,7 @@
                     else
                     {
                         hooks[group][username] = response;
+                        update_size_limits[group][username] = limit;
                         _retrieveUpdates(username, group, timestamp);
                     }
                 });
@@ -1635,7 +1674,7 @@
                                 "SELECT user, field " +
                                     "FROM permissions " +
                                     "WHERE group_name = ? " +
-                                    "AND" +"(" + query_fields + ");",
+                                    "AND" + "(" + query_fields + ");",
                                 [group],
                                 function(err, result)
                                 {
@@ -1912,13 +1951,26 @@
                     switch(request.method)
                     {
                         case "PUT":
-                            _putData(parsed_url.query.session_id, parsed_url.query.app, parsed_url.query.field, data, response);
+                            _putData(
+                                parsed_url.query.session_id,
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                data,
+                                response);
                             break;
                         case "GET":
-                            _getData(parsed_url.query.session_id, parsed_url.query.app, parsed_url.query.field, response);
+                            _getData(
+                                parsed_url.query.session_id,
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                response);
                             break;
                         case "DELETE":
-                            _deleteData(parsed_url.query.session_id, parsed_url.query.app, parsed_url.query.field, response);
+                            _deleteData(
+                                parsed_url.query.session_id,
+                                parsed_url.query.app,
+                                parsed_url.query.field,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, PUT, DELETE, OPTIONS', response);
@@ -1931,7 +1983,12 @@
                     switch(request.method)
                     {
                         case "POST":
-                            _startGroup(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.app, data, response);
+                            _startGroup(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.app,
+                                data,
+                                response);
                             break;
                         case "GET":
                             _listGroupsOfApp(parsed_url.query.app, response);
@@ -1950,13 +2007,21 @@
                     switch(request.method)
                     {
                         case "POST":
-                            _addMember(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.username, response);
+                            _addMember(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.username,
+                                response);
                             break;
                         case "GET":
                             _listMembersOfGroup(parsed_url.query.group, response);
                             break;
                         case "DELETE":
-                            _removeMember(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.username, response);
+                            _removeMember(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.username,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, POST, DELETE, OPTIONS', response);
@@ -1978,7 +2043,11 @@
                                 response);
                             break;
                         case "GET":
-                            _getGroupData(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.field, response);
+                            _getGroupData(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.field,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, PUT, OPTIONS', response);
@@ -1990,8 +2059,13 @@
                 case "/groups/data/permissions":
                     switch(request.method){
                         case "PUT":
-                            _setPermissions(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.fields,
-                                parsed_url.query.username, parsed_url.query.permissions, response);
+                            _setPermissions(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.fields,
+                                parsed_url.query.username,
+                                parsed_url.query.permissions,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('PUT, OPTIONS', response);
@@ -2003,7 +2077,12 @@
                 case "/groups/updates":
                     switch(request.method){
                         case "GET":
-                            _listenUpdates(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
+                            _listenUpdates(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.limit,
+                                parsed_url.query.timestamp,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, OPTIONS', response);
@@ -2015,10 +2094,18 @@
                 case "/groups/input":
                     switch(request.method){
                         case "POST":
-                            _submitInput(parsed_url.query.session_id, parsed_url.query.group, data, response);
+                            _submitInput(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                data,
+                                response);
                             break;
                         case "GET":
-                            _listenInputs(parsed_url.query.session_id, parsed_url.query.group, parsed_url.query.timestamp, response);
+                            _listenInputs(
+                                parsed_url.query.session_id,
+                                parsed_url.query.group,
+                                parsed_url.query.timestamp,
+                                response);
                             break;
                         case "OPTIONS":
                             _respondOptions('GET, POST, OPTIONS', response);
