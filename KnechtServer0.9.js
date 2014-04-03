@@ -1054,8 +1054,45 @@
                             }
                         }
                         else
-                        {
-                            _finishResponse(200, response);
+                        { //notify the new member of all the public data they have access to
+                            connection.query("SELECT field FROM permissions WHERE group_name = ? AND user = ?;",
+                            [group, username],
+                            function(err, result)
+                            {
+                                if(err)
+                                {//database error
+                                    _finishResponse(500, response, err_msg.db_err);
+                                }
+                                else
+                                {
+                                    var i, updates;
+                                    updates = '';
+                                    for(i = 0; i < result.length; i += 1)
+                                    {
+                                        updates += "(" +
+                                            connection.escape(group) + ',' +
+                                            connection.escape(member) + ',' +
+                                            connection.escape(result[i].field) + ',' +
+                                            new Date().getTime() + ',' +
+                                            Math.random() * Number.MAX_VALUE + ')';
+                                        if(i < result.length - 1)
+                                        {
+                                            updates += ',';
+                                        }
+                                    }
+                                    connection.query("INSERT INTO updates VALUES " + updates + ';', function(err)
+                                    {
+                                        if(err)
+                                        {//database error
+                                            _finishResponse(500, response, err_msg.db_err);
+                                        }
+                                        else
+                                        {
+                                            _finishResponse(200, response);
+                                        }
+                                    });
+                                }
+                            });
                         }
                     });
             });
@@ -1579,82 +1616,119 @@
         {
             _checkHost(username, group, response, function()
             {
-                var formatted = _formatPermissions(fields, members, permissions, username);
-                if(!formatted || typeof session_id !== 'string' || typeof group !== 'string')
+                connection.query("SELECT user FROM members WHERE group_name = ?;", [group], function(err, result)
                 {
-                    _finishResponse(400, response, err_msg.incorrect_arg);
-                    return;
-                }
-                var i, j, permitted_values, forbidden_values, update_values, shared_fields, updated_members;
-                permitted_values = ''; //values to be inserted into the permissions table
-                forbidden_values = '';//values to be removed from the permissions table
-                update_values = ''; //values to be inserted into the updates table
-                updated_members = []; //array of names of users who have new updates from this function call
-                for(i = 0; i < formatted.fields.length; i += 1)
-                {//for each field
-                    for(j = 0; j < formatted.members.length; j += 1)
-                    {//for each member
-                        if(formatted.permissions[i][j]) //granting permission
-                        {
-                            if(updated_members.indexOf(formatted.members[j]) === -1 &&
-                                formatted.members[j] !== username)
-                            { //add members[j] to updated list if not already in it
-                                updated_members.push(formatted.members[j]);
-                            }
-                            shared_fields = "("
-                                + connection.escape(group) + ","
-                                + connection.escape(formatted.members[j]) + ","
-                                + connection.escape(formatted.fields[i]);
-                            permitted_values += shared_fields + "),";
-                            update_values +=
-                                shared_fields + ',' +
-                                    new Date().getTime() + ',' +
-                                    Math.random() * Number.MAX_VALUE + "),";
-                        }
-                        else //revoking permission
-                        {
-                            forbidden_values +=
-                                " (field = " + connection.escape(formatted.fields[i]) +
-                                    " AND user = " + connection.escape(formatted.members[j]) + ") OR";
-                        }
-                    }
-                    if(forbidden_values)
-                    {
-                        forbidden_values = forbidden_values.slice(0, -2); //cut off trailing OR
-                        connection.query(
-                            "DELETE FROM permissions " +
-                                "WHERE group_name = ? " +
-                                "AND ( " + forbidden_values + " );",
-                            [group],
-                            function(err)
-                            {
-                                if(err)
-                                {//database error
-                                    _finishResponse(500, response, err_msg.db_err);
-                                }
-                                else if(permitted_values)
-                                {//new permissions were granted, so notify users
-                                    permitted_values = permitted_values.slice(0, -1);//cut off trailing commas
-                                    update_values = update_values.slice(0, -1);//cut off trailing commas
-                                    _insertPermissions(group, permitted_values, update_values, updated_members, response);
-                                }
-                                else
-                                {
-                                    _finishResponse(200, response);
-                                }
-                            });
-                    }
-                    else if(permitted_values)
-                    {
-                        permitted_values = permitted_values.slice(0, -1);
-                        update_values = update_values.slice(0, -1);
-                        _insertPermissions(group, permitted_values, update_values, updated_members, response);
+                    if(err)
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else
                     {
-                        _finishResponse(200, response);
+                        var i, group_members;
+                        group_members = [];
+                        for(i = 0; i < result.length; i +=1)
+                        {
+                            group_members.push(result[i].user);
+                        }
+                        var formatted = _formatPermissions(fields, members, permissions, username);
+                        if(!formatted || typeof session_id !== 'string' || typeof group !== 'string')
+                        {
+                            _finishResponse(400, response, err_msg.incorrect_arg);
+                            return;
+                        }
+                        var j, k, granted_permissions, revoked_permissions, updates, members_to_notify, shared_fields;
+                        granted_permissions = '';//values to be inserted into the permissions table
+                        revoked_permissions = '';//values to be removed from the permissions table
+                        updates = ''; //values to be inserted into the updates table
+                        members_to_notify = [];//array of names of users who have new updates from this function call
+                        for(i = 0; i < formatted.fields.length; i +=1)
+                        {//for each field
+                            if(typeof(formatted.fields[i]) !== 'string')
+                            {//incorrect argument type
+                                _finishResponse(400, response, err_msg.incorrect_args);
+                                return;
+                            }
+                            for(j = 0; j < formatted.members.length; j += 1)
+                            {//for each member
+                                if(formatted.permissions[i][j])//granting permissions
+                                {
+                                    if(members_to_notify.indexOf(formatted.members[j]) === -1 &&
+                                        formatted.members[j] !== username)
+                                    { //add members[j] to notification list if not already in it
+                                        members_to_notify.push(formatted.members[j]);
+                                    }
+                                    if(formatted.members[j] === username)
+                                    {//permission is set for host; universal access, notify all members
+                                        for(k = 0; k < group_members.length; k += 1)
+                                        {
+                                            if(members_to_notify.indexOf(group_members[k]) === -1)
+                                            { //add members[j] to notification list if not already in it
+                                                members_to_notify.push(group_members[k]);
+                                            }
+                                            updates += "(" +
+                                                connection.escape(group) + ',' +
+                                                connection.escape(group_members[k]) + ',' +
+                                                connection.escape(formatted.fields[i]) + ',' +
+                                                new Date().getTime() + ',' +
+                                                Math.random() * Number.MAX_VALUE + '),'
+                                        }
+                                    }
+                                    shared_fields = "("
+                                        + connection.escape(group) + ","
+                                        + connection.escape(formatted.members[j]) + ","
+                                        + connection.escape(formatted.fields[i]);
+                                    granted_permissions += shared_fields + "),";
+                                    updates +=
+                                        shared_fields + ',' +
+                                            new Date().getTime() + ',' +
+                                            Math.random() * Number.MAX_VALUE + "),";
+                                }
+                                else
+                                {//revoking permission
+                                    revoked_permissions +=
+                                        "(field = " + connection.escape(formatted.fields[i]) +
+                                            " AND user = " + connection.escape(formatted.members[j]) + ") OR";
+                                }
+                            }
+                        }
+                        if(revoked_permissions)
+                        {
+                            revoked_permissions = revoked_permissions.slice(0, -2); //cut off trailing OR
+                            connection.query(
+                                "DELETE FROM permissions " +
+                                    "WHERE group_name = ? " +
+                                    "AND ( " + revoked_permissions + " );",
+                                [group],
+                                function(err)
+                                {
+                                    if(err)
+                                    {//database error
+                                        _finishResponse(500, response, err_msg.db_err);
+                                    }
+                                    else if(granted_permissions)
+                                    {//new permissions were granted, so notify users
+                                        granted_permissions = granted_permissions.slice(0, -1);//cut off trailing commas
+                                        updates = updates.slice(0, -1);//cut off trailing commas
+                                        _insertPermissions(group, granted_permissions, updates, members_to_notify, response);
+                                    }
+                                    else
+                                    {
+                                        _finishResponse(200, response);
+                                    }
+                                });
+                        }
+                        else if(granted_permissions)
+                        {
+                            granted_permissions = granted_permissions.slice(0, -1);
+                            updates = updates.slice(0, -1);
+                            _insertPermissions(group, granted_permissions, updates, members_to_notify, response);
+                        }
+                        else
+                        {
+                            _finishResponse(200, response);
+                        }
                     }
-                }
+                });
             });
         });
     }
@@ -1668,63 +1742,63 @@
         {
             _checkHost(username, group, response, function()
             {
-                var formatted = _formatPermissions(fields, members, permissions, username);
-                if(!formatted || typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(data))
+                connection.query("SELECT user FROM members WHERE group_name = ?;", [group], function(err, result)
                 {
-                    _finishResponse(400, response, err_msg.incorrect_arg);
-                    return;
-                }
-                data = JSON.parse(data);
-                if(formatted.fields.length === 1)
-                {//data should be interpreted as a single element if only one field
-                    data = [data];
-                }
-                else if(!(data instanceof Array) || formatted.fields.length !== data.length)
-                {//incorrect argument
-                    _finishResponse(400, response, err_msg.incorrect_args);
-                    return;
-                }
-                var i, data_values, query_fields;
-                data_values = '';
-                query_fields = '';
-                for(i = 0; i < formatted.fields.length; i += 1)
-                {
-                    if(typeof(formatted.fields[i]) !== 'string')
-                    {//incorrect argument type
-                        _finishResponse(400, response, err_msg.incorrect_args);
-                        return;
+                    if(err)
+                    {//database error
+                        _finishResponse(500, response, err_msg.db_err);
                     }
-                    data_values += "("
-                        + connection.escape(group) + ","
-                        + connection.escape(formatted.fields[i]) + ","
-                        + connection.escape(JSON.stringify(data[i])) + ")";
-                    query_fields += "field = " + connection.escape(formatted.fields[i]);
-                    if(i < formatted.fields.length -1)
+                    else
                     {
-                        data_values += ",";
-                        query_fields += " OR ";
-                    }
-                }
-                connection.query(
-                    "INSERT INTO group_data " +
-                        "VALUES " +data_values+
-                        " ON DUPLICATE KEY " +
-                        "UPDATE data = VALUES(data);",
-                    function(err)
-                    {
-                        if(err)
-                        {//database error
-                            _finishResponse(500, response, err_msg.db_err);
-                        }
-                        else
+                        var i, group_members, formatted;
+                        group_members = [];
+                        for(i = 0; i < result.length; i +=1)
                         {
+                            group_members.push(result[i].user);
+                        }
+                        formatted = _formatPermissions(fields, members, permissions, username);
+                        if(!formatted || typeof session_id !== 'string' || typeof group !== 'string')
+                        {
+                            _finishResponse(400, response, err_msg.incorrect_arg);
+                            return;
+                        }
+                        data = JSON.parse(data);
+                        if(formatted.fields.length === 1)
+                        {//data should be interpreted as a single element if only one field
+                            data = [data];
+                        }
+                        else if(!(data instanceof Array) || formatted.fields.length !== data.length)
+                        {//incorrect argument
+                            _finishResponse(400, response, err_msg.incorrect_args);
+                            return;
+                        }
+
+                        var data_values, updated_fields;
+                        data_values = '';
+                        updated_fields = '';
+                        for(i = 0; i < formatted.fields.length; i += 1)
+                        {
+                            if(typeof(formatted.fields[i]) !== 'string')
+                            {//incorrect argument type
+                                _finishResponse(400, response, err_msg.incorrect_args);
+                                return;
+                            }
+                            data_values += "("
+                                + connection.escape(group) + ","
+                                + connection.escape(formatted.fields[i]) + ","
+                                + connection.escape(JSON.stringify(data[i])) + ")";
+                            updated_fields += "field = " + connection.escape(formatted.fields[i]);
+                            if(i < formatted.fields.length -1)
+                            {
+                                data_values += ",";
+                                updated_fields += " OR ";
+                            }
                             connection.query(
-                                "SELECT user, field " +
-                                    "FROM permissions " +
-                                    "WHERE group_name = ? " +
-                                    "AND" + "(" + query_fields + ");",
-                                [group],
-                                function(err, result)
+                                "INSERT INTO group_data " +
+                                    "VALUES " +data_values+
+                                    " ON DUPLICATE KEY " +
+                                    "UPDATE data = VALUES(data);",
+                                function(err)
                                 {
                                     if(err)
                                     {//database error
@@ -1732,41 +1806,89 @@
                                     }
                                     else
                                     {
-                                        var update_values = '';
-                                        var updated_members = [];
-                                        for(i = 0; i < result.length; i += 1)
-                                        {
-                                            if(updated_members.indexOf(result[i].user) === -1 && result[i].user !== username)
+                                        connection.query(
+                                            "SELECT user, field " +
+                                                "FROM permissions " +
+                                                "WHERE group_name = ? " +
+                                                "AND" + "(" + updated_fields + ");",
+                                            [group],
+                                            function(err, result)
                                             {
-                                                updated_members.push(result[i].user);
-                                            }
-                                            update_values += "("
-                                                + connection.escape(group) + ','
-                                                + connection.escape(result[i].user) + ','
-                                                + connection.escape(result[i].field) + ','
-                                                + new Date().getTime() + ','
-                                                + connection.escape(Math.random() * Number.MAX_VALUE) + ')';
-                                            if(i < result.length - 1)
-                                            {
-                                                update_values +=  ',';
-                                            }
-                                        }
-                                        if(update_values)
-                                        {
-                                            connection.query("INSERT INTO updates VALUES " + update_values +
-                                                'ON DUPLICATE KEY UPDATE time = VALUES(time);',
-                                                function(err)
+                                                if(err)
+                                                {//database error
+                                                    _finishResponse(500, response, err_msg.db_err);
+                                                }
+                                                else
                                                 {
-                                                    if(err)
-                                                    {//database error
-                                                        _finishResponse(500, response, err_msg.db_err);
+                                                    var j, updates, members_to_notify;
+                                                    updates = '';
+                                                    members_to_notify = [];
+                                                    for(i = 0; i < result.length; i += 1)
+                                                    {
+                                                        if(members_to_notify.indexOf(result[i].user) === -1 &&
+                                                            result[i].user !== username)
+                                                        {
+                                                            members_to_notify.push(result[i].user);
+                                                        }
+                                                        if(result[i].user === username)
+                                                        {//permission is set for host; universal access, notify all members
+                                                            for(j = 0; j < group_members.length; j += 1)
+                                                            {
+                                                                if(members_to_notify.indexOf(group_members[j]) === -1)
+                                                                { //add members[j] to notification list if not already in it
+                                                                    members_to_notify.push(group_members[j]);
+                                                                }
+                                                                updates += "(" +
+                                                                    connection.escape(group) + ',' +
+                                                                    connection.escape(group_members[j]) + ',' +
+                                                                    connection.escape(result[i].field) + ',' +
+                                                                    new Date().getTime() + ',' +
+                                                                    Math.random() * Number.MAX_VALUE + '),'
+                                                            }
+                                                        }
+                                                        updates += "("
+                                                            + connection.escape(group) + ','
+                                                            + connection.escape(result[i].user) + ','
+                                                            + connection.escape(result[i].field) + ','
+                                                            + new Date().getTime() + ','
+                                                            + connection.escape(Math.random() * Number.MAX_VALUE) + '),';
+                                                    }
+                                                    if(updates)
+                                                    {
+                                                        updates = updates.slice(0, -1);
+                                                        connection.query("INSERT INTO updates VALUES " + updates +
+                                                            'ON DUPLICATE KEY UPDATE time = VALUES(time);',
+                                                            function(err)
+                                                            {
+                                                                if(err)
+                                                                {//database error
+                                                                    _finishResponse(500, response, err_msg.db_err);
+                                                                }
+                                                                else
+                                                                {
+                                                                    for(i = 0; i < members_to_notify.length; i += 1)
+                                                                    {
+                                                                        _retrieveUpdates(members_to_notify[i], group, []);
+                                                                    }
+                                                                    if(permissions)
+                                                                    {
+                                                                        _setPermissions(
+                                                                            session_id,
+                                                                            group,
+                                                                            JSON.stringify(formatted.fields),
+                                                                            JSON.stringify(formatted.members),
+                                                                            JSON.stringify(formatted.permissions),
+                                                                            response);
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        _finishResponse(200, response);
+                                                                    }
+                                                                }
+                                                            });
                                                     }
                                                     else
                                                     {
-                                                        for(i = 0; i < updated_members.length; i += 1)
-                                                        {
-                                                            _retrieveUpdates(updated_members[i], group, []);
-                                                        }
                                                         if(permissions)
                                                         {
                                                             _setPermissions(
@@ -1782,29 +1904,13 @@
                                                             _finishResponse(200, response);
                                                         }
                                                     }
-                                                });
-                                        }
-                                        else
-                                        {
-                                            if(permissions)
-                                            {
-                                                _setPermissions(
-                                                    session_id,
-                                                    group,
-                                                    JSON.stringify(formatted.fields),
-                                                    JSON.stringify(formatted.members),
-                                                    JSON.stringify(formatted.permissions),
-                                                    response);
-                                            }
-                                            else
-                                            {
-                                                _finishResponse(200, response);
-                                            }
-                                        }
+                                                }
+                                            });
                                     }
                                 });
                         }
-                    });
+                    }
+                });
             });
         });
     }
