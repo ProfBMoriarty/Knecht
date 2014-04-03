@@ -660,7 +660,7 @@ var K = {};
         _sendRequest( "GET",
             "/groups/updates?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
-                "&limit=" + encodeURIComponent(limit) +
+                "&limit=" + encodeURIComponent(JSON.stringify(limit)) +
                 "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
             function ( status, result )
             {
