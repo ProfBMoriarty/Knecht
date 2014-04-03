@@ -97,9 +97,9 @@ PS.touch = function( x, y, data, options ) {
         }
         K.register(user, user + "_pass", function(res)
         {
-            if(!res.error) PS.statusText(user + " registered successfully");
-            else user = '';
+            if(res.error) user = '';
         });
+        PS.statusText(user);
     }
     else if(!group)
     {
@@ -122,10 +122,21 @@ PS.touch = function( x, y, data, options ) {
                 if(!res.error)
                 {
                     group += "_group";
-                    PS.statusText(group + " registered successfully");
-                    if(user === 'player 1') blue_pos.active = true;
-                    if(user === 'player 2') red_pos.active = true;
-                    if(user === 'player 3') green_pos.active = true;
+                    if(user === 'player 1')
+                    {
+                        blue_pos.active = true;
+                        K.submitUpdates(group, "blue_pos", blue_pos, submitUpdateCallback, true, 'player 1');
+                    }
+                    if(user === 'player 2')
+                    {
+                        red_pos.active = true;
+                        K.submitUpdates(group, "red_pos", red_pos, submitUpdateCallback, true, 'player 2');
+                    }
+                    if(user === 'player 3')
+                    {
+                        green_pos.active = true;
+                        K.submitUpdates(group, "green_pos", green_pos, submitUpdateCallback, true, 'player 3');
+                    }
                     K.listenInputs(group, processInputs);
                 }
                 else group = '';
@@ -136,7 +147,6 @@ PS.touch = function( x, y, data, options ) {
             if(!res.error)
             {
                 group += "_group";
-                PS.statusText(group + " join request sent successfully");
                 K.listenUpdates(group, processUpdates);
             }
             else group = '';
@@ -331,11 +341,7 @@ function processInputs(input_response)
                 {
                     K.addMember(group, input_response.inputs[i].user, function()
                     {
-                        K.listMembersOfGroup(group, function(r)
-                        {
-                            PS.statusText(JSON.stringify(r.members) + " are in");
-                            drawPositions();
-                        });
+                        drawPositions();
                     });
                 }
             }
@@ -390,7 +396,6 @@ function processInputs(input_response)
 
 function processUpdates(res)
 {
-    PS.statusText(JSON.stringify(res));
     for(var i = 0; i < res.updates.length; i++)
     {
         if(res.updates[i] === 'blue_pos') blue_pos = res.data.blue_pos;
@@ -410,6 +415,4 @@ function drawPositions()
 
 function submitUpdateCallback(response)
 {
-    if(response.error) PS.statusText(response.error);
-    else PS.statusText("Updates submitted");
 }
