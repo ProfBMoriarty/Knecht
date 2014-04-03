@@ -941,6 +941,7 @@
                     else
                     {
                         hooks[name] = {}; //create object to hold pending responses for this group
+                        update_size_limits[name] = {} //create object to hold app-specified data size limits
                         _finishResponse(200, response);
                     }
                 });
@@ -1249,13 +1250,14 @@
     }
 
     function _listenUpdates(session_id, group, timestamp, limit, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || typeof limit !== 'number')
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || !_isJSON(limit))
         {//argument is wrong type
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         timestamp = JSON.parse(timestamp);
-        if(typeof timestamp !== 'number')
+        limit = JSON.parse(limit);
+        if(typeof timestamp !== 'number' || typeof limit !== 'number')
         {//argument is wrong type
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
@@ -1263,22 +1265,23 @@
         _checkCredentials(session_id, response, function(username){
             connection.query(
                 "SELECT 1 " +
-                    "FROM members WHERE " +
-                    "group_name = ? " +
-                    "AND user = ?;",
+                    "FROM groups WHERE " +
+                    "name = ?;",
                 [group, username],
                 function(err, result)
                 {
                     if(err)
                     {//database error
+                        console.log(err.toString());
                         _finishResponse(500, response, err_msg.db_err);
                     }
                     else if(result.length === 0)
-                    {//member not found
-                        _finishResponse(404, response, err_msg.not_member);
+                    {//group not found
+                        _finishResponse(404, response, err_msg.no_group);
                     }
                     else
                     {
+                        console.log(group);
                         hooks[group][username] = response;
                         update_size_limits[group][username] = limit;
                         _retrieveUpdates(username, group, timestamp);
@@ -1320,7 +1323,7 @@
                             contents = [];//array of input objects
                             for(i = 0; i < input.length; i += 1)
                             {//clean up inputs that have already been received by host
-                                contents.push({user: input[i].user, input: input[i].input, time: input[i].time});
+                                contents.push({user: input[i].user, input: JSON.parse(input[i].input), time: input[i].time});
                             }
                             connection.query(
                                 "DELETE FROM inputs " +
