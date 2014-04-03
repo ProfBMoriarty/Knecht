@@ -639,7 +639,7 @@ var K = {};
                     callback(result);
                     if (!result.error && result.updates !== undefined )
                     {
-                        K.listenUpdates(group, callback, result.clear );
+                        K.listenUpdates(group, callback, limit, result.clear );
                     }
                 }
                 if( result.error && _error_callback)
