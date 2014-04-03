@@ -189,6 +189,8 @@
                                     'field VARCHAR (' + db_config.column_length.field + '),' +
                                     //timestamp off when the update occurred
                                     'time BIGINT,' +
+                                    //random number to distinguish this update from others for garbage cleaning
+                                    'id VARCHAR (' + db_config.column_length.session_id + '),' +
                                     //combination of group_name, user, and field must be unique among all entries
                                     'PRIMARY KEY (group_name, user, field),' +
                                     //user must correspond to a registered user
@@ -210,6 +212,8 @@
                                     'input TEXT (' + db_config.column_length.input + '),' +
                                     //timestamp of when the input was received by the server
                                     'time BIGINT,' +
+                                    //random number to distinguish this input from others for garbage cleaning
+                                    'id VARCHAR (' + db_config.column_length.session_id + '),' +
                                     //user must correspond to a registered user
                                     'FOREIGN KEY (user) REFERENCES users (username)' +
                                     //entries will be deleted or updated as the associated user is deleted or renamed
@@ -1021,6 +1025,7 @@
     {
         if(typeof session_id !== 'string' || typeof group !== 'string' || typeof member !== 'string')
         {//argument is wrong type
+            console.log("wrong argument type");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
@@ -1029,6 +1034,7 @@
             _checkHost(username, group, response, function(){
                 if(member === username)
                 {//user is host, thus already in group
+                    console.log("member is host");
                     _finishResponse(403, response, err_msg.dup_member);
                     return;
                 }
@@ -1042,15 +1048,18 @@
                         {
                             if(err.code === "ER_DUP_ENTRY")
                             {//member is already in group
+                                console.log("member already in group");
                                 _finishResponse(403, response, err_msg.dup_member);
                             }
                             else
                             {//database error
+                                console.log("database error");
                                 _finishResponse(500, response, err_msg.db_err);
                             }
                         }
                         else
                         {
+                            console.log("member added successfully");
                             _finishResponse(200, response);
                         }
                     });
@@ -1169,14 +1178,14 @@
 
     //region Groups Updates functions
 
-    function _retrieveUpdates(username, group, timestamp)
+    function _retrieveUpdates(username, group, clear)
     {//responds to a pending update subscription with all pending updates
         if(!hooks[group][username])
         {//user is not yet subscribed for updates
             return;
         }
         connection.query(
-            "SELECT field " +
+            "SELECT field, id " +
                 "FROM updates " +
                 "WHERE group_name = ? " +
                 "AND user = ?",
@@ -1188,11 +1197,13 @@
                 }
                 else if(updates.length > 0) //only retrieve if there are new updates
                 {
-                    var i, fields, data, query_fields, _respondUpdates;
+                    var i, fields, ids, data, query_fields, clear_query, delete_query_string;
                     fields = [];//array of updated field names
+                    ids = [];//array of update id numbers
                     for(i = 0; i < updates.length; i += 1)
                     {
                         fields.push(updates[i].field);
+                        ids.push(updates[i].id);
                     }
                     //construct the part of the query string that finds data only of updated fields
                     query_fields = '';
@@ -1225,12 +1236,34 @@
                                 {
                                     data[data_result.field] = JSON.parse(data_result.data);
                                 }
+                                //construct the part of the query string that cleans up updates already recieved by user
+                                clear_query = '';
+                                for(i = 0; i < clear.length; i += 1)
+                                {
+                                    clear_query += "id = " + connection.escape(clear[i].id);
+                                    if(i < clear.length - 1)
+                                    {
+                                        clear_query += " OR ";
+                                    }
+                                }
+                                if(clear_query)
+                                {
+                                    delete_query_string =
+                                        "DELETE FROM updates " +
+                                            "WHERE group_name = ? " +
+                                            "AND user = ? AND " +
+                                            "(" + clear_query + ");"
+                                }
+                                else
+                                {
+                                    delete_query_string =
+                                        "DELETE FROM updates " +
+                                            "WHERE group_name = ? " +
+                                            "AND user = ?;"
+                                }
                                 connection.query(
-                                    "DELETE FROM updates " +
-                                        "WHERE group_name = ? " +
-                                        "AND user = ? AND " +
-                                        "? > time;",
-                                    [group, username, timestamp + 1000],
+                                    delete_query_string,
+                                    [group, username],
                                     function(err)
                                     {
                                         if(err)
@@ -1239,7 +1272,12 @@
                                         }
                                         else
                                         {
-                                            _finishResponse(200, hooks[group][username], {updates: fields, data: data});
+                                            _finishResponse(200, hooks[group][username],
+                                                {
+                                                    updates: fields,
+                                                    data: data,
+                                                    clear: ids
+                                                });
                                         }
                                     });
                             }
@@ -1249,16 +1287,18 @@
             });
     }
 
-    function _listenUpdates(session_id, group, timestamp, limit, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp) || !_isJSON(limit))
+    function _listenUpdates(session_id, group, clear, limit, response){
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(clear) || !_isJSON(limit))
         {//argument is wrong type
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        timestamp = JSON.parse(timestamp);
+        clear = JSON.parse(clear);
         limit = JSON.parse(limit);
-        if(typeof timestamp !== 'number' || typeof limit !== 'number')
+        if(!(clear instanceof Array) || typeof limit !== 'number')
         {//argument is wrong type
+            console.log(JSON.stringify(clear));
+            console.log(typeof clear);
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
@@ -1272,7 +1312,6 @@
                 {
                     if(err)
                     {//database error
-                        console.log(err.toString());
                         _finishResponse(500, response, err_msg.db_err);
                     }
                     else if(result.length === 0)
@@ -1281,10 +1320,9 @@
                     }
                     else
                     {
-                        console.log(group);
                         hooks[group][username] = response;
                         update_size_limits[group][username] = limit;
-                        _retrieveUpdates(username, group, timestamp);
+                        _retrieveUpdates(username, group, clear);
                     }
                 });
         });
@@ -1292,7 +1330,7 @@
     //endregion
 
     //region Groups Input functions
-    function _retrieveInput(group, timestamp)
+    function _retrieveInput(group, clear)
     {//responds to host of a group with all pending inputs
         connection.query(
             "SELECT host " +
@@ -1307,39 +1345,64 @@
                     return;
                 }
                 connection.query(
-                    "SELECT user, input, time " +
+                    "SELECT user, input, time, id " +
                         "FROM inputs " +
                         "WHERE group_name = ?",
                     [group],
                     function(err, input)
                     {
+                        console.log("Input is length " + input.length);
                         if(err)
                         {//database error
+                            console.log("Input responded");
                             _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
                         }
                         else if(input.length > 0)
                         {//if there are any new inputs to report
-                            var i, contents;
+                            var i, contents, ids, clear_query, query_string;
                             contents = [];//array of input objects
+                            ids = []; //id numbers of inputs
                             for(i = 0; i < input.length; i += 1)
-                            {//clean up inputs that have already been received by host
-                                contents.push({user: input[i].user, input: JSON.parse(input[i].input), time: input[i].time});
+                            {//construct inputs object to be returned with response
+                                contents.push(
+                                    {
+                                        user: input[i].user,
+                                        input: JSON.parse(input[i].input),
+                                        time: input[i].time
+                                    });
+                                ids.push(input[i].id);
+                            }
+                            clear_query = '';
+                            for(i = 0; i < clear.length; i += 1)
+                            {
+                                clear_query += 'id = ' + connection.escape(clear[i]);
+                                if(i < clear.length - 1)
+                                {
+                                    clear_query += " OR ";
+                                }
+                            }
+                            if(clear_query)
+                            {
+                                query_string = "DELETE FROM inputs WHERE group_name = ? AND (" + clear_query + ");";
+                            }
+                            else
+                            {
+                                query_string = "DELETE FROM inputs WHERE group_name = ?;";
                             }
                             connection.query(
-                                "DELETE FROM inputs " +
-                                    "WHERE group_name = ? " +
-                                    "AND ? > time " +
-                                    "LIMIT 1;",
-                                [group, timestamp + 1000],
+                                query_string,
+                                [group],
                                 function(err)
                                 {
                                     if(err)
                                     {//database error
+                                        console.log("Input responded");
                                         _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
                                     }
                                     else
                                     {
-                                        _finishResponse(200, hooks[group][host[0].host], {inputs: contents});
+                                        console.log("Input responded");
+                                        _finishResponse(200, hooks[group][host[0].host], {inputs: contents, clear: ids});
                                     }
                                 });
                         }
@@ -1348,22 +1411,25 @@
     }
 
     //subscribe to inputs being sent to a group you host
-    function _listenInputs(session_id, group, timestamp, response){
-        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(timestamp))
+    function _listenInputs(session_id, group, clear, response){
+        console.log("Input requested");
+        if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(clear))
         {//argument is wrong type
+            console.log("Input responded");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
-        timestamp = JSON.parse(timestamp);
-        if(typeof timestamp !== 'number')
+        clear = JSON.parse(clear);
+        if(!(clear instanceof Array))
         {//argument is wrong type
+            console.log("Input responded");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         _checkCredentials(session_id, response, function(username){
             _checkHost(username, group, response, function(){
                 hooks[group][username] = response;
-                _retrieveInput(group, timestamp);
+                _retrieveInput(group, clear);
             });
         });
     }
@@ -1377,16 +1443,17 @@
         _checkCredentials(session_id, response, function(username){
             connection.query(
                 "INSERT INTO inputs " +
-                    "VALUES (?, ?, ?, ?);",
-                [group, username, input, new Date().getTime()],
+                    "VALUES (?, ?, ?, ?, ?);",
+                [group, username, input, new Date().getTime(), Math.random() * Number.MAX_VALUE],
                 function(err){
                     if(err)
                     {//database error
-                        _finishResponse(500, response, err_msg.incorrect_args);
+                        console.log(err.toString());
+                        _finishResponse(500, response, err_msg.db_err);
                     }
                     else {
                         _finishResponse(200, response);
-                        _retrieveInput(group, 0);
+                        _retrieveInput(group, []);
                     }
                 });
         });
@@ -1425,7 +1492,7 @@
                                 _finishResponse(200, response);
                                 for (i = 0; i < updated_members.length; i += 1)
                                 {//tell all affected members they have new updates
-                                    _retrieveUpdates(updated_members[i], group, 0);
+                                    _retrieveUpdates(updated_members[i], group, []);
                                 }
                             }
                         });
@@ -1699,6 +1766,7 @@
                                                 + connection.escape(group) + ','
                                                 + connection.escape(result[i].user) + ','
                                                 + connection.escape(result[i].field) + ','
+                                                + connection.escape(Math.random * Number.MAX_VALUE) + ','
                                                 + new Date().getTime() + ')';
                                             if(i < result.length - 1)
                                             {
@@ -1719,7 +1787,7 @@
                                                     {
                                                         for(i = 0; i < updated_members.length; i += 1)
                                                         {
-                                                            _retrieveUpdates(updated_members[i], group, 0);
+                                                            _retrieveUpdates(updated_members[i], group, []);
                                                         }
                                                         if(permissions)
                                                         {
@@ -2083,8 +2151,8 @@
                             _listenUpdates(
                                 parsed_url.query.session_id,
                                 parsed_url.query.group,
+                                parsed_url.query.clear,
                                 parsed_url.query.limit,
-                                parsed_url.query.timestamp,
                                 response);
                             break;
                         case "OPTIONS":
@@ -2107,7 +2175,7 @@
                             _listenInputs(
                                 parsed_url.query.session_id,
                                 parsed_url.query.group,
-                                parsed_url.query.timestamp,
+                                parsed_url.query.clear,
                                 response);
                             break;
                         case "OPTIONS":
