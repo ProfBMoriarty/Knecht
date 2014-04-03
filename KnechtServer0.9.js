@@ -1025,7 +1025,6 @@
     {
         if(typeof session_id !== 'string' || typeof group !== 'string' || typeof member !== 'string')
         {//argument is wrong type
-            console.log("wrong argument type");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
@@ -1034,7 +1033,6 @@
             _checkHost(username, group, response, function(){
                 if(member === username)
                 {//user is host, thus already in group
-                    console.log("member is host");
                     _finishResponse(403, response, err_msg.dup_member);
                     return;
                 }
@@ -1048,18 +1046,15 @@
                         {
                             if(err.code === "ER_DUP_ENTRY")
                             {//member is already in group
-                                console.log("member already in group");
                                 _finishResponse(403, response, err_msg.dup_member);
                             }
                             else
                             {//database error
-                                console.log("database error");
                                 _finishResponse(500, response, err_msg.db_err);
                             }
                         }
                         else
                         {
-                            console.log("member added successfully");
                             _finishResponse(200, response);
                         }
                     });
@@ -1185,12 +1180,11 @@
         {//user is not yet subscribed for updates
             return;
         }
-
-        //construct the part of the query string that cleans up updates already recieved by user
+        //construct the part of the query string that cleans up updates already received by user
         clear_query = '';
         for(i = 0; i < clear.length; i += 1)
         {
-            clear_query += "id = " + connection.escape(clear[i].id);
+            clear_query += "id = " + connection.escape(clear[i]);
             if(i < clear.length - 1)
             {
                 clear_query += " OR ";
@@ -1200,7 +1194,6 @@
         {
             clear_query = "0=1";
         }
-        console.log("Deleting " + clear.length + " updates");
         connection.query(
             "DELETE FROM updates " +
                 "WHERE group_name = ? " +
@@ -1265,7 +1258,7 @@
                                             data = {};//object of field name : data pairs
                                             for(i = 0; i < data_result.length; i += 1)
                                             {
-                                                data[data_result.field] = JSON.parse(data_result.data);
+                                                data[data_result[i].field] = JSON.parse(data_result[i].data);
                                             }
                                             _finishResponse(200, hooks[group][username],
                                                 {
@@ -1292,8 +1285,6 @@
         limit = JSON.parse(limit);
         if(!(clear instanceof Array) || typeof limit !== 'number')
         {//argument is wrong type
-            console.log(JSON.stringify(clear));
-            console.log(typeof clear);
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
@@ -1353,7 +1344,6 @@
                 { //dont delete anything if nothing to clear
                     clear_query = "0 = 1"
                 }
-                console.log("Deleting " + clear.length + " inputs");
                 connection.query(
                     "DELETE FROM inputs WHERE group_name = ? AND (" + clear_query + ");",
                     [group],
@@ -1434,7 +1424,6 @@
                 function(err){
                     if(err)
                     {//database error
-                        console.log(err.toString());
                         _finishResponse(500, response, err_msg.db_err);
                     }
                     else {
@@ -1617,7 +1606,10 @@
                                 + connection.escape(formatted.members[j]) + ","
                                 + connection.escape(formatted.fields[i]);
                             permitted_values += shared_fields + "),";
-                            update_values += shared_fields + ',' + new Date().getTime() + "),";
+                            update_values +=
+                                shared_fields + ',' +
+                                    new Date().getTime() + ',' +
+                                    Math.random() * Number.MAX_VALUE + "),";
                         }
                         else //revoking permission
                         {
@@ -1670,7 +1662,7 @@
 
     //region Group Data functions
 
-    function _submitUpdates(session_id, group, fields, data, members, permissions, response)
+    function _submitUpdates(session_id, group, fields, data, permissions, members, response)
     {
         _checkCredentials(session_id, response, function(username)
         {
