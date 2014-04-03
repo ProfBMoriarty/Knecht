@@ -16,19 +16,6 @@ var K = {};
     var _error_callback = null; //function to be called in case of request failure
     //endregion
 
-    //region Response Result Constants
-    K.responses = { //mapping between http response codes and Knecht result strings
-        200 : "K.OK", //the request was fulfilled successfully
-        401 : "K.UNAUTHORIZED", //the request could not be fulfilled because the authentication parameters are invalid
-        403 : "K.INVALID", //the request could not be fulfilled because an invalid resource/argument has been specified
-        500 : "K.ERROR" //the request could not be fulfilled because a database error has occurred
-    };
-    K.OK = K.responses[200];
-    K.UNAUTHORIZED = K.responses[401];
-    K.INVALID = K.responses[403];
-    K.ERROR = K.responses[500];
-    //endregion
-
     //region Helper Functions
 
     function _isJSON (string) //returns true if the given string can be parsed as JSON, otherwise false
@@ -53,11 +40,11 @@ var K = {};
             {
                 if( _isJSON(request.responseText))
                 {
-                    callback( request.status, JSON.parse(request.responseText ));
+                    callback(JSON.parse(request.responseText ));
                 }
                 else
                 {
-                    callback(500,{error: 'Response Text Was Not JSON'});
+                    callback({error: 'Response Text Was Not JSON'});
                 }
             }
         };
@@ -67,33 +54,30 @@ var K = {};
 
     /**
      * This function is used as a callback for server requests.
-     * @param status is an integer that is the status of the request to the server
      * @param result is the result of the query
      * @param fp is a function from this file that accesses the server
      * @param fn is a string that is the name of fp
      * @param args is an array of 5 arguments suitable for the fp function
      * @param callback a function to be called once a response is received from the server
      */
-    function _autoRelog(status, result, fp, fn, args, callback)
+    function _autoRelog(result, fp, fn, args, callback)
     {
-        if  (K.responses[status] === K.UNAUTHORIZED )
+        if  (result.error === 'Expired Session ID' )
         {
             K.login(_username, _password, function(login_result)
             {
-                if ( login_result.status === K.OK )
+                if (!login_result.error)
                 {
                     fp(args[0], args[1], args[2], args[3], args[4]);
                 }
                 else
                 {
-                    result.status = K.UNAUTHORIZED;
                     callback(result);
                 }
             });
         }
         else
         {
-            result.status = K.responses[status];
             callback(result);
         }
         if ( result.error && _error_callback )
@@ -136,7 +120,6 @@ var K = {};
      * @param username the username to be checked
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        registered: if present, a boolean set to true if the user is registered, otherwise false
@@ -147,7 +130,6 @@ var K = {};
             "/users?username=" + encodeURIComponent( username ),
             function ( status, result )
             {
-                result.status = K.responses[status];
                 callback( result );
                 if ( result.error && _error_callback )
                 {
@@ -161,7 +143,6 @@ var K = {};
      * @param password the password to be used for the new account
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      * @param timeout OPTIONAL how long a session key remains valid for in minutes. default 15
@@ -177,13 +158,12 @@ var K = {};
         _sendRequest( "POST",
             "/users?username=" + _username +
                 "&timeout=" + encodeURIComponent( timeout ),
-            function ( status, result )
+            function ( result )
             {
-                if ( K.responses[status] === K.OK )
+                if (!result.error)
                 {
                     _session_id = encodeURIComponent( result.session );
                 }
-                result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback )
                 {
@@ -195,7 +175,6 @@ var K = {};
      * Unregisters a user account from the server and removes all of its data
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      * If first call failed due to expired session_id, knecht will attempt to log in with stored details and try again
@@ -204,9 +183,9 @@ var K = {};
     {
         _sendRequest("DELETE",
             "/users?session_id=" + _session_id,
-            function(status, result)
+            function(result)
             {
-                _autoRelog(status, result, K.unregister, 'unregister', [callback], callback);
+                _autoRelog(result, K.unregister, 'unregister', [callback], callback);
             });
     };
 
@@ -219,7 +198,6 @@ var K = {};
      * @param password the password of the account to be logged in
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -229,13 +207,12 @@ var K = {};
         _password = password;
         _sendRequest( "PUT",
             "/users/session?username=" + _username,
-            function ( status, result )
+            function (result )
             {
-                if ( K.responses[status] === K.OK )
+                if (!result.error)
                 {
                     _session_id = encodeURIComponent( result.session );
                 }
-                result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback)
                 {
@@ -247,7 +224,6 @@ var K = {};
      * Expires a session token and removes that user's stored login information from the client
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -256,9 +232,8 @@ var K = {};
         _username = null;
         _password = null;
         _sendRequest("DELETE", "users/session?session_id=" + _session_id,
-            function(status, result)
+            function(result)
             {
-                result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback)
                 {
@@ -283,9 +258,8 @@ var K = {};
     {
         _sendRequest("GET",
             'users/password?username=' + encodeURIComponent(username),
-            function(status, result)
+            function(result)
             {
-                result.status = K.responses[status];
                 callback(result);
                 if ( result.error && _error_callback )
                 {
@@ -299,7 +273,6 @@ var K = {};
      * @parm new_password is a string that is the new password of the account
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -307,19 +280,18 @@ var K = {};
     {
         _sendRequest("PUT",
             'users/password?session_id=' + _session_id,
-            function ( status, result )
+            function ( result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
+                if (result.error === 'Expired Session ID')
                 {
                     K.login( _username, _password, function ( login_result )
                     {
-                        if ( login_result.status === K.OK )
+                        if (!login_result.error)
                         {
                             K.changePassword(new_password, callback );
                         }
                         else
                         {
-                            result.status = K.UNAUTHORIZED;
                             callback(result);
                         }
                     } );
@@ -327,7 +299,6 @@ var K = {};
                 else
                 {
                     _password = new_password;
-                    result.status = K.responses[status];
                     callback(result);
                 }
                 if ( result.error && _error_callback)
@@ -345,7 +316,6 @@ var K = {};
      * @param data the data to be stored in the specified fields. If field is an array this must be one of the same length
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -355,9 +325,9 @@ var K = {};
             "/users/data?session_id=" + _session_id +
                 "&app=" + _app +
                 "&field=" + encodeURIComponent(JSON.stringify(field)),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.putData, 'putData', [field, data, callback], callback);
+                _autoRelog(result, K.putData, 'putData', [field, data, callback], callback);
             }, data );
     };
     /**
@@ -365,7 +335,6 @@ var K = {};
      * @param field either a string naming the field to be retrieved, or an array of such
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        data: if present, an object containing the retrieved data with fields as member names.
@@ -377,9 +346,9 @@ var K = {};
             "/users/data?session_id=" + _session_id +
                 "&app=" + _app +
                 "&field=" + encodeURIComponent(JSON.stringify(field)),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.getData, 'getData', [field, callback], callback);
+                _autoRelog(result, K.getData, 'getData', [field, callback], callback);
             } );
     };
     /**
@@ -387,7 +356,6 @@ var K = {};
      * @param field either a string naming the field to be deleted, or an array of such
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -397,9 +365,9 @@ var K = {};
             "/users/data?session_id=" + _session_id +
                 "&app=" + _app +
                 "&field=" + encodeURIComponent(JSON.stringify(field)),
-            function ( status, result )
+            function (result )
             {
-                _autoRelog(status, result, K.deleteData, 'deleteData', [field, callback], callback);
+                _autoRelog( result, K.deleteData, 'deleteData', [field, callback], callback);
             } );
     };
     //endregion
@@ -411,7 +379,6 @@ var K = {};
      * @param grouppass password string for use with locked groups
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -420,16 +387,15 @@ var K = {};
         _sendRequest( "POST",
             "/groups?session_id=" + _session_id +
                 "&app=" + _app + "&group=" + encodeURIComponent( group ),
-            function ( status, result )
+            function (result )
             {
-                _autoRelog(status, result, K.startGroup, 'startGroup', [group, grouppass, callback], callback);
+                _autoRelog(result, K.startGroup, 'startGroup', [group, grouppass, callback], callback);
             }, grouppass );
     };
     /**
      * Provides a list of active groups using the same application as the client
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        groups: if present, an array containing the names of all groups registered with the currently set application
@@ -438,9 +404,8 @@ var K = {};
     {
         _sendRequest( "GET",
             "/groups?app=" + _app,
-            function (status, result)
+            function (result)
             {
-                result.status = K.responses[status];
                 callback(result);
                 if ( result.error && _error_callback )
                 {
@@ -454,7 +419,6 @@ var K = {};
      * @param group the name of the group to be closed
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -463,9 +427,9 @@ var K = {};
         _sendRequest( "DELETE",
             "/groups?session_id=" + _session_id +
                 "&group=" + encodeURIComponent( group ),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.closeGroup, 'closeGroup', [group, callback], callback);
+                _autoRelog(result, K.closeGroup, 'closeGroup', [group, callback], callback);
             } );
     };
     //endregion
@@ -477,7 +441,6 @@ var K = {};
      * @param username string identifying the member to be added
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -487,9 +450,9 @@ var K = {};
             "/groups/members?session_id=" + _session_id +
                 "&group=" + encodeURIComponent( group ) +
                 "&username=" + encodeURIComponent(username),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.addMember, 'addMember', [group, username, callback], callback);
+                _autoRelog(result, K.addMember, 'addMember', [group, username, callback], callback);
             } );
     };
     /**
@@ -497,7 +460,6 @@ var K = {};
      * @param group string identifying the group
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        host: if present, a string identifying the host of the group
@@ -506,9 +468,8 @@ var K = {};
     K.listMembersOfGroup = function ( group, callback )
     {
         _sendRequest( "GET", "/groups/members?group=" + encodeURIComponent( group ),
-            function ( status, result )
+            function ( result )
             {
-                result.status = K.responses[status];
                 callback(result);
                 if( result.error && _error_callback)
                 {
@@ -522,7 +483,6 @@ var K = {};
      * @param username string identifying the user to be removed
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -532,9 +492,9 @@ var K = {};
             "/groups/members?session_id=" + _session_id +
                 "&group=" + encodeURIComponent( group ) +
                 "&username=" + encodeURIComponent(username),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.removeMember, 'removeMember', [group, username, callback], callback);
+                _autoRelog(result, K.removeMember, 'removeMember', [group, username, callback], callback);
             } );
     };
     //endregion
@@ -547,7 +507,6 @@ var K = {};
      * @param data any object or array of objects containing the data to be stored. Of the same length as fields
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      * @param permissions optional boolean, array of booleans, or array of arrays of booleans indicating whether members
@@ -569,9 +528,9 @@ var K = {};
         }
         _sendRequest("PUT",
             query_string,
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.submitUpdates, 'submitUpdates',
+                _autoRelog(result, K.submitUpdates, 'submitUpdates',
                     [group, fields, data, callback, permissions, members], callback);
             }, data);
     };
@@ -581,7 +540,6 @@ var K = {};
      * @param fields string or array of strings identifying the data to be retrieved
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        data: if present, an object with members corresponding to the requested data
@@ -592,9 +550,9 @@ var K = {};
             "/groups/data?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
                 "&field=" + encodeURIComponent(JSON.stringify(fields)),
-            function ( status, result )
+            function (result )
             {
-                _autoRelog(status, result, K.getGroupData, 'getGroupData', [group, fields, callback], callback);
+                _autoRelog(result, K.getGroupData, 'getGroupData', [group, fields, callback], callback);
             } );
     };
     //endregion
@@ -607,7 +565,6 @@ var K = {};
      * @param permissions boolean, array of booleans, or array of booleans indicating whether the corresponding fields can be read by corresponding members
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      * @param members optionally, a string or array of strings identifying the users the permissions are for
@@ -624,9 +581,9 @@ var K = {};
         }
         _sendRequest( "PUT",
             query_string,
-            function ( status, result )
+            function (result )
             {
-                _autoRelog(status, result, K.setPermissions, 'setPermissions', [group, fields, callback, members], callback);
+                _autoRelog(result, K.setPermissions, 'setPermissions', [group, fields, callback, members], callback);
             } );
     };
     //endregion
@@ -637,7 +594,6 @@ var K = {};
      * @param group the group to subscribe to
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        updates: if present, an array of strings identifying fields whose data needs to be re-read
@@ -647,11 +603,11 @@ var K = {};
      *        exceeds limit. No limit is set if this parameter is undefined
      * @param timestamp number indicating when the last update was sent. used for garbage cleaning old notifications from server
      */
-    K.listenUpdates = function(group, callback, limit, timestamp)
+    K.listenUpdates = function(group, callback, limit, clear)
     {
-        if(!timestamp)
+        if(!clear)
         {
-            timestamp = 0;
+            clear = [];
         }
         if(!limit)
         {
@@ -661,31 +617,29 @@ var K = {};
             "/groups/updates?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
                 "&limit=" + encodeURIComponent(JSON.stringify(limit)) +
-                "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
-            function ( status, result )
+                "&clear=" + encodeURIComponent(JSON.stringify(clear)),
+            function ( result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
+                if ( result.error === 'Expired Session ID')
                 {
                     K.login( _username, _password, function ( login_result )
                     {
-                        if ( login_result.status === K.OK )
+                        if ( !login_result.error )
                         {
-                            K.listenUpdates( group, callback, limit, timestamp );
+                            K.listenUpdates( group, callback, limit, clear );
                         }
                         else
                         {
-                            result.status = K.UNAUTHORIZED;
                             callback(result);
                         }
                     } );
                 }
                 else
                 {
-                    result.status = K.responses[status];
                     callback(result);
-                    if (result.status === K.OK && result.updates !== undefined )
+                    if (!result.error && result.updates !== undefined )
                     {
-                        K.listenUpdates(group, callback, result.timestamp );
+                        K.listenUpdates(group, callback, result.clear );
                     }
                 }
                 if( result.error && _error_callback)
@@ -702,46 +656,43 @@ var K = {};
      * @param group the group to subscribe to
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      *        inputs: if present, an array of objects containing two fields, one identifying the user who submitted it an one with the input itself
      * @param timestamp number indicating when the last input was sent from server. used for garbage cleaning old notifications from server
      */
-    K.listenInputs = function(group, callback, timestamp)
+    K.listenInputs = function(group, callback, clear)
     {
-        if(!timestamp)
+        if(!clear)
         {
-            timestamp = 0;
+            clear = [];
         }
         _sendRequest( "GET",
             "/groups/input?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group) +
-                "&timestamp=" + encodeURIComponent(JSON.stringify(timestamp)),
-            function ( status, result )
+                "&clear=" + encodeURIComponent(JSON.stringify(clear)),
+            function (result )
             {
-                if ( K.responses[status] === K.UNAUTHORIZED )
+                if ( result.error === 'Expired Session ID')
                 {
                     K.login( _username, _password, function ( login_result )
                     {
-                        if ( login_result.status === K.OK )
+                        if ( !login_result.error)
                         {
-                            K.listenInputs( group, callback, timestamp );
+                            K.listenInputs( group, callback, clear );
                         }
                         else
                         {
-                            result.status = K.UNAUTHORIZED;
                             callback(result);
                         }
                     } );
                 }
                 else
                 {
-                    result.status = K.responses[status];
                     callback(result);
-                    if(result.status === K.OK && result.inputs !== undefined)
+                    if(!result.error && result.inputs !== undefined)
                     {
-                        K.listenInputs(group, callback, result.timestamp );
+                        K.listenInputs(group, callback, result.clear );
                     }
                 }
                 if( result.error && _error_callback)
@@ -756,7 +707,6 @@ var K = {};
      * @param input object containing arbitrary input data
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
      *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
      *        error: if present, a string specifying the error that occurred processing the request
      */
@@ -765,9 +715,9 @@ var K = {};
         _sendRequest( "POST",
             "/groups/input?session_id=" + _session_id +
                 "&group=" + encodeURIComponent(group),
-            function ( status, result )
+            function ( result )
             {
-                _autoRelog(status, result, K.submitInput, 'submitInput', [group, input, callback], callback);
+                _autoRelog(result, K.submitInput, 'submitInput', [group, input, callback], callback);
             }, input );
     };
     //endregion
