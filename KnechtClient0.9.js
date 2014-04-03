@@ -470,34 +470,6 @@ var K = {};
     };
     //endregion
 
-    //region Group Password API functions
-    /**
-     * Checks whether a given string is the password to the group
-     * @param group string identifying the group to be accessed
-     * @param password the string to check against the registered group password
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     *        correct: if present, boolean true if password matches, otherwise wise
-     */
-    K.checkGroupPassword = function (group, password, callback)
-    {
-        _sendRequest( "POST",
-            "/groups/password?group=" + encodeURIComponent(group),
-            function(status, result)
-            {
-                result.status = K.responses[status];
-                callback( result );
-                if( result.error && _error_callback)
-                {
-                    _error_callback('checkGroupPassword', result.error );
-                }
-            }, password);
-    };
-    //endregion
-
     //region Group Members API functions
     /**
      * Adds a user to the list of members for a group you are the host of
@@ -698,7 +670,7 @@ var K = {};
                     {
                         if ( login_result.status === K.OK )
                         {
-                            K.listenUpdates( group, callback, timestamp );
+                            K.listenUpdates( group, callback, limit, timestamp );
                         }
                         else
                         {
