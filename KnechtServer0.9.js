@@ -1744,8 +1744,8 @@
                                                 + connection.escape(group) + ','
                                                 + connection.escape(result[i].user) + ','
                                                 + connection.escape(result[i].field) + ','
-                                                + connection.escape(Math.random * Number.MAX_VALUE) + ','
-                                                + new Date().getTime() + ')';
+                                                + new Date().getTime() + ','
+                                                + connection.escape(Math.random() * Number.MAX_VALUE) + ')';
                                             if(i < result.length - 1)
                                             {
                                                 update_values +=  ',';
