@@ -1180,91 +1180,81 @@
 
     function _retrieveUpdates(username, group, clear)
     {//responds to a pending update subscription with all pending updates
+        var i, clear_query;
         if(!hooks[group][username])
         {//user is not yet subscribed for updates
             return;
         }
+
+        //construct the part of the query string that cleans up updates already recieved by user
+        clear_query = '';
+        for(i = 0; i < clear.length; i += 1)
+        {
+            clear_query += "id = " + connection.escape(clear[i].id);
+            if(i < clear.length - 1)
+            {
+                clear_query += " OR ";
+            }
+        }
+        if(!clear_query)
+        {
+            clear_query = "0=1";
+        }
+        console.log("Deleting " + clear.length + " updates");
         connection.query(
-            "SELECT field, id " +
-                "FROM updates " +
+            "DELETE FROM updates " +
                 "WHERE group_name = ? " +
-                "AND user = ?",
+                "AND user = ? AND " +
+                "(" + clear_query + ");",
             [group, username],
-            function(err, updates){
+            function(err)
+            {
                 if(err)
                 {//database error
                     _finishResponse(500, hooks[group][username], err_msg.db_err);
                 }
-                else if(updates.length > 0) //only retrieve if there are new updates
+                else
                 {
-                    var i, fields, ids, data, query_fields, clear_query, delete_query_string;
-                    fields = [];//array of updated field names
-                    ids = [];//array of update id numbers
-                    for(i = 0; i < updates.length; i += 1)
-                    {
-                        fields.push(updates[i].field);
-                        ids.push(updates[i].id);
-                    }
-                    //construct the part of the query string that finds data only of updated fields
-                    query_fields = '';
-                    for(i = 0; i < fields.length; i += 1)
-                    {
-                        query_fields += "field = " + connection.escape(fields[i]);
-                        if(i < fields.length -1)
-                        {
-                            query_fields += " OR ";
-                        }
-                    }
-                    //retrieve data values under size limit for all updated fields
                     connection.query(
-                        "SELECT field, data " +
-                            "FROM group_data " +
+                        "SELECT field, id " +
+                            "FROM updates " +
                             "WHERE group_name = ? " +
-                            "AND " + "(" + query_fields + ") " +
-                            "AND ? > CHAR_LENGTH(data);",
-                        [group, update_size_limits[group][username]],
-                        function(err, data_result)
-                        {
+                            "AND user = ?",
+                        [group, username],
+                        function(err, updates){
                             if(err)
                             {//database error
                                 _finishResponse(500, hooks[group][username], err_msg.db_err);
                             }
-                            else
+                            else if(updates.length > 0) //only retrieve if there are new updates
                             {
-                                data = {};//object of field name : data pairs
-                                for(i = 0; i < data_result.length; i += 1)
+                                var fields, ids, data, query_fields;
+                                fields = [];//array of updated field names
+                                ids = [];//array of update id numbers
+                                for(i = 0; i < updates.length; i += 1)
                                 {
-                                    data[data_result.field] = JSON.parse(data_result.data);
+                                    fields.push(updates[i].field);
+                                    ids.push(updates[i].id);
                                 }
-                                //construct the part of the query string that cleans up updates already recieved by user
-                                clear_query = '';
-                                for(i = 0; i < clear.length; i += 1)
+                                //construct the part of the query string that finds data only of updated fields
+                                query_fields = '';
+                                for(i = 0; i < fields.length; i += 1)
                                 {
-                                    clear_query += "id = " + connection.escape(clear[i].id);
-                                    if(i < clear.length - 1)
+                                    query_fields += "field = " + connection.escape(fields[i]);
+                                    if(i < fields.length -1)
                                     {
-                                        clear_query += " OR ";
+                                        query_fields += " OR ";
                                     }
                                 }
-                                if(clear_query)
-                                {
-                                    delete_query_string =
-                                        "DELETE FROM updates " +
-                                            "WHERE group_name = ? " +
-                                            "AND user = ? AND " +
-                                            "(" + clear_query + ");"
-                                }
-                                else
-                                {
-                                    delete_query_string =
-                                        "DELETE FROM updates " +
-                                            "WHERE group_name = ? " +
-                                            "AND user = ?;"
-                                }
+                                //retrieve data values under size limit for all updated fields
                                 connection.query(
-                                    delete_query_string,
-                                    [group, username],
-                                    function(err)
+                                    "SELECT field, data " +
+                                        "FROM group_data " +
+                                        "WHERE group_name = ? " +
+                                        "AND " + "(" + query_fields + ") " +
+                                        "AND ? > CHAR_LENGTH(data);",
+                                    [group, update_size_limits[group][username]],
+                                    function(err, data_result)
                                     {
                                         if(err)
                                         {//database error
@@ -1272,6 +1262,11 @@
                                         }
                                         else
                                         {
+                                            data = {};//object of field name : data pairs
+                                            for(i = 0; i < data_result.length; i += 1)
+                                            {
+                                                data[data_result.field] = JSON.parse(data_result.data);
+                                            }
                                             _finishResponse(200, hooks[group][username],
                                                 {
                                                     updates: fields,
@@ -1279,10 +1274,10 @@
                                                     clear: ids
                                                 });
                                         }
-                                    });
+                                    }
+                                )
                             }
-                        }
-                    )
+                        });
                 }
             });
     }
@@ -1340,68 +1335,62 @@
             [group],
             function(err, host)
             {
+                var i, clear_query;
                 if(!hooks[group][host[0].host])
                 {//host is not listening for inputs
                     return;
                 }
-                connection.query(
-                    "SELECT user, input, time, id " +
-                        "FROM inputs " +
-                        "WHERE group_name = ?",
-                    [group],
-                    function(err, input)
+                clear_query = '';
+                for(i = 0; i < clear.length; i += 1)
+                {
+                    clear_query += 'id = ' + connection.escape(clear[i]);
+                    if(i < clear.length - 1)
                     {
-                        console.log("Input is length " + input.length);
+                        clear_query += " OR ";
+                    }
+                }
+                if(!clear_query)
+                { //dont delete anything if nothing to clear
+                    clear_query = "0 = 1"
+                }
+                console.log("Deleting " + clear.length + " inputs");
+                connection.query(
+                    "DELETE FROM inputs WHERE group_name = ? AND (" + clear_query + ");",
+                    [group],
+                    function(err)
+                    {
                         if(err)
                         {//database error
-                            console.log("Input responded");
                             _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
                         }
-                        else if(input.length > 0)
-                        {//if there are any new inputs to report
-                            var i, contents, ids, clear_query, query_string;
-                            contents = [];//array of input objects
-                            ids = []; //id numbers of inputs
-                            for(i = 0; i < input.length; i += 1)
-                            {//construct inputs object to be returned with response
-                                contents.push(
-                                    {
-                                        user: input[i].user,
-                                        input: JSON.parse(input[i].input),
-                                        time: input[i].time
-                                    });
-                                ids.push(input[i].id);
-                            }
-                            clear_query = '';
-                            for(i = 0; i < clear.length; i += 1)
-                            {
-                                clear_query += 'id = ' + connection.escape(clear[i]);
-                                if(i < clear.length - 1)
-                                {
-                                    clear_query += " OR ";
-                                }
-                            }
-                            if(clear_query)
-                            {
-                                query_string = "DELETE FROM inputs WHERE group_name = ? AND (" + clear_query + ");";
-                            }
-                            else
-                            {
-                                query_string = "DELETE FROM inputs WHERE group_name = ?;";
-                            }
+                        else
+                        {
                             connection.query(
-                                query_string,
+                                "SELECT user, input, time, id " +
+                                    "FROM inputs " +
+                                    "WHERE group_name = ?",
                                 [group],
-                                function(err)
+                                function(err, input)
                                 {
                                     if(err)
                                     {//database error
-                                        console.log("Input responded");
                                         _finishResponse(500, hooks[group][host[0].host], err_msg.db_err);
                                     }
-                                    else
-                                    {
-                                        console.log("Input responded");
+                                    else if(input.length > 0)
+                                    {//if there are any new inputs to report
+                                        var contents, ids;
+                                        contents = [];//array of input objects
+                                        ids = []; //id numbers of inputs
+                                        for(i = 0; i < input.length; i += 1)
+                                        {//construct inputs object to be returned with response
+                                            contents.push(
+                                                {
+                                                    user: input[i].user,
+                                                    input: JSON.parse(input[i].input),
+                                                    time: input[i].time
+                                                });
+                                            ids.push(input[i].id);
+                                        }
                                         _finishResponse(200, hooks[group][host[0].host], {inputs: contents, clear: ids});
                                     }
                                 });
@@ -1412,17 +1401,14 @@
 
     //subscribe to inputs being sent to a group you host
     function _listenInputs(session_id, group, clear, response){
-        console.log("Input requested");
         if(typeof session_id !== 'string' || typeof group !== 'string' || !_isJSON(clear))
         {//argument is wrong type
-            console.log("Input responded");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
         clear = JSON.parse(clear);
         if(!(clear instanceof Array))
         {//argument is wrong type
-            console.log("Input responded");
             _finishResponse(400, response, err_msg.incorrect_args);
             return;
         }
