@@ -1,0 +1,16 @@
+So I haven't gotten as far as I was hoping.
+Here's what I got so far:
+
+blue area in the center is the playing field
+
+gray rectangles on the side represent the available ships.  Each dark gray square contains a json that contains the ship's number (S) its health/length (H) and its vertical/horizontal orientation (I).  This data can be added/altered with PS.data
+
+the red button on the left is supposed to toggle the player's selection screen (where they choose where to attack) and their ships (which are stored in the 2d array p_view) (Not yet implemented, only has player side field)
+
+The green button is a taunt button; Moriarty added the command PS.statusInput, which changes the status line into an input line.
+
+The black button on the left is meant to be a login button. (Not Yet Implemented)
+
+currently, you can place ships on the grid by clicking on them on the right hand side and clicking in the cyan area (they will only appear if they can fit in the space).  You can turn the ships by pressing "t" while making your selection.
+
+I was having trouble figuring out how to represent ship health (to tell when the game is over).  Apart from that, we just need to figure out how to send attacks and taunts back and forth.  Just look at the network stuff and I can handle health and view toggle.
