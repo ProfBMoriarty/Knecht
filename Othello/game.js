@@ -67,11 +67,11 @@ PS.init = function( system, options ) {
                             PS.statusText("Could not add member");
                         }
                     });
-                    K.grantPermission("othello", "p2", "move", function(r){
+                    K.setPermissions("othello", "move", true, function(r){
                         if(r.error){
                             PS.statusText("Could not grant permission");
                         }
-                    });
+                    }, "p2");
 
                     p_color = PS.COLOR_BLACK;
                     is_turn = true;
@@ -94,6 +94,8 @@ PS.init = function( system, options ) {
 
     PS.statusText("Othello, Bitch");
 
+    PS.applyRect(0, 8, 8, 3, PS.border, 0);
+
     PS.applyRect(0, 0, 8, 8, PS.color, PS.COLOR_GREEN);
     PS.applyRect(0, 0, 8, 8, PS.glyphColor, PS.COLOR_CYAN);
 
@@ -109,6 +111,12 @@ PS.init = function( system, options ) {
     put_text(10, "Taunt");
 
 	// Add any other initialization code you need here
+
+    PS.applyRect(3, 3, 2, 2, PS.glyph, "O");
+    PS.glyphColor(3, 3, PS.COLOR_BLACK);
+    PS.glyphColor(4, 4, PS.COLOR_BLACK);
+    PS.glyphColor(3, 4, PS.COLOR_WHITE);
+    PS.glyphColor(4, 3, PS.COLOR_WHITE);
 };
 
 // PS.touch ( x, y, data, options )
@@ -128,7 +136,7 @@ PS.touch = function( x, y, data, options ) {
 	// Add code here for mouse clicks/touches over a bead
 
     if(in_bounds(x, y)){
-        if(is_turn && (PS.glyph(x, y) == PS.DEFAULT)){
+        if(is_turn && (PS.glyph(x, y) !== "O")){
             find_color(x-1, y-1, p_color, "ul");
             find_color(x+1, y-1, p_color, "ur");
             find_color(x-1, y+1, p_color, "dl");
@@ -144,7 +152,7 @@ PS.touch = function( x, y, data, options ) {
                 var to_send = {"X": x, "Y": y};
                 if(p_color == PS.COLOR_BLACK){
 
-                    K.submitUpdate("othello", "move", to_send, function(){});
+                    K.submitUpdates("othello", "move", to_send, function(){});
                 }
                 else{
                     K.submitInput("othello", to_send, function(){});
@@ -161,7 +169,7 @@ PS.touch = function( x, y, data, options ) {
             if(is_turn){
                 var to_send = {"Pass": true};
                 if(p_color = PS.COLOR_BLACK){
-                    K.submitUpdate("othello", "move", to_send, function(){});
+                    K.submitUpdates("othello", "move", to_send, function(){});
                 }
                 else{
                     K.submitInput("othello", to_send, function(){});
@@ -171,7 +179,7 @@ PS.touch = function( x, y, data, options ) {
         }
         if(PS.color(x, y) == PS.COLOR_CYAN){
             PS.statusInput("", function(text){
-                var to_send = {"taunt": text};
+                var to_send = {"Taunt": text};
                 if(p_color = PS.COLOR_BLACK){
                     K.submitUpdate("othello", "move", to_send, function(){});
                 }
@@ -182,7 +190,7 @@ PS.touch = function( x, y, data, options ) {
         }
     }
 
-    PS.statusText("Othello, Bitch");
+    //PS.statusText("Othello, Bitch");
 };
 
 // PS.release ( x, y, data, options )
@@ -404,10 +412,10 @@ function myTimer(){
             var j;
             for(var i; i < result.body.input.length; i += 1){
                 j = result.body.input[i];
-                if(j.taunt){
-                    PS.statusText(j.taunt);
+                if(j.Taunt){
+                    PS.statusText(j.Taunt);
                 }
-                else if(j.pass){
+                else if(j.Pass){
                     PS.statusText("Your opponent passes");
                     is_turn = true;
                 }
@@ -425,10 +433,10 @@ function myTimer(){
             var j;
             for(var i; i < result.body.input.length; i += 1){
                 j = result.body.input[i];
-                if(j.taunt){
-                    PS.statusText(j.taunt);
+                if(j.Taunt){
+                    PS.statusText(j.Taunt);
                 }
-                else if(j.pass){
+                else if(j.Pass){
                     PS.statusText("Your opponent passes");
                     is_turn = true;
                 }
