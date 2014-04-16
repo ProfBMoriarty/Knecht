@@ -7,7 +7,7 @@ var K = {};
     //values rarely changed during a session, stored so they do not need to be provided explicitly to each function call
     var _address = 'http://perlenspiel.cs.wpi.edu/';  //the address of the server, with trailing slash
     var _application = '';  //application name; clients can only act on data using the same app name
-    var _error_callback = function(fn, err){}; //function to be called in case of request failure
+    var _error_callback = function(functionName, err){}; //function to be called in case of request failure
     var _username = '';  //the user's username address serving as the name of his account
     var _password = '';  //the user's password, used to validate the account
     var _session = ''; //the authentication token from the most recent login
@@ -38,11 +38,11 @@ var K = {};
      * This function is used as a callback for server requests.
      * @param result is the result of the query
      * @param fp is a function from this file that accesses the server
-     * @param fn is a string that is the name of fp
+     * @param functionName is a string that is the name of fp
      * @param args is an array of up to 5 arguments suitable for the fp function
      * @param callback a function to be called once a response is received from the server
      */
-    function _autoRelog(result, fp, fn, args, callback)
+    function _autoRelog(result, fp, functionName, args, callback)
     {
         if  (result.error === 'Expired session' )
         {//if request failed because session has timed out
@@ -64,7 +64,7 @@ var K = {};
         }
         if ( result.error && _error_callback )
         {
-            _error_callback(fn, result.error);
+            _error_callback(functionName, result.error);
         }
     }
 

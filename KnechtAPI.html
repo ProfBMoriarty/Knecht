@@ -135,22 +135,22 @@
 
         <p class="subitem">.address</p>
 
-        <p>The http address of the Knecht server the client will communicate with. The default server is located at
+        <p>The http address of the Knecht server the client will communicate with.  The default server is located at
             <a href="perlenspiel.cs.wpi.edu">perlenspiel.cs.wpi.edu</a>.</p>
 
         <p class="subitem">.application</p>
 
         <p>A string identifying the application currently using the Knecht engine, usually set only once per runtime.
             It is up to application designers to correctly label their programs; Knecht makes no attempt to verify
-            and application's identity</p>
+            and application's identity.</p>
 
         <p class="subitem">.error_callback</p>
 
         <p>A <em>function</em> that will be called whenever a Knecht client function receives an error response
-            from the server. It takes 2 parameters:</p>
+            from the server.  It takes 2 parameters:</p>
 
         <ul>
-            <li><b>.fn</b> : <em>string</em></li>
+            <li><b>.functionName</b> : <em>string</em></li>
             <li><b>.error</b> : <em>string</em></li>
         </ul>
 
@@ -159,9 +159,9 @@
 
         <p class="subitem">.username / .password / .session</p>
 
-        <p>should correspond to some registered user on the server. These three variables are normally set by the
-            Knecht client internally after calls to <a href="#register">K.register</a> or <a href="#login">K.login</a>,
-            but may be manually set to switch between multiple accounts, for example.</p>
+        <p>These strings should correspond to some registered user on the server.  These three variables are normally set
+            by the Knecht client internally after calls to <a href="#register">K.register</a> or
+            <a href="#login">K.login</a>, but may be manually set, for example, to switch between multiple accounts.</p>
 
         <p class="subitem">Usage</p>
 
@@ -174,15 +174,15 @@
 
         <p class="subitem">Return value</p>
 
-        <p>K.config returns an object with the each of the above members. Each member contains the value of the
+        <p>K.config returns an object with the each of the above members.  Each member contains the value of the
             corresponding internal variable Knecht uses to store configuration and authentication information.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
                 //writes the error to the current document<br/>
-                var writeError = function( fn, err )<br/>
+                var writeError = function( functionName, err )<br/>
                 {<br/>
-                <span>&nbsp;&nbsp;&nbsp;</span>alert( "Error " + err + " in fun " + fn );<br/>
+                <span>&nbsp;&nbsp;&nbsp;</span>alert( "Error " + err + " in fun " + functionName );<br/>
                 }<br/>
                 // Set the server address, application name,<br/>
                 //and error callback function<br/>
@@ -246,25 +246,25 @@
     <p class="subitem">.username</p>
 
     <p>If this member is included, only the single user whose registered username exactly matches this string
-        will be included</p>
+        will be included.</p>
 
     <p class="subitem">.group_name</p>
 
-    <p>A string giving the name of a group. Only users who are either the host or a member of the group whose
-        name matches this string will be included</p>
+    <p>A string giving the name of a group.  Only users who are either the host or a member of the group whose
+        name matches this string will be included.</p>
 
     <p class="subitem">.online</p>
 
     <p>If this boolean is set to true, then only users whose most recent session has not yet expired, and was thus
-        recently online, will be included</p>
+        recently online, will be included.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.getUsers is used to retrieve lobby information and maintain friend lists, as well as checking to see
-        whether a given username is registered or not when signing up for an account</p>
+        whether a given username is registered or not when signing up for an account.</p>
 
     <p class="subitem">Return value</p>
 
@@ -278,17 +278,17 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.users</p>
 
-    <p>An array of all usernames from the database matching the constraints. This member is only present if the
-        function completed successfully</p>
+    <p>An array of all usernames from the database matching the constraints.  This member is only present if the
+        function completed successfully.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
@@ -296,12 +296,12 @@
             var in_class;<br/>
             //Checks whether the user is a member of the group<br/>
             K.getUsers( { <br/>
-            <span>&nbsp;&nbsp;&nbsp;</span>username: "patrick",<br/>
+            <span>&nbsp;&nbsp;&nbsp;</span>username: "Patrick",<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>group: "classof2014",<br/>
             },<br/>
             function(res)<br/>
             {<br/>
-            <span>&nbsp;&nbsp;&nbsp;</span>in_class = (!res.error && res.users[0] === "patrick");<br/>
+            <span>&nbsp;&nbsp;&nbsp;</span>in_class = (!res.error && res.users[0] === "Patrick");<br/>
             });</p>
     </div>
 </div>
@@ -309,7 +309,7 @@
 <div class="section">
     <p class="subhead" id="register">K.register ( username, password, callback )</p>
 
-    <p>K.register creates a new user account on the server</p>
+    <p>K.register creates a new user account on the server.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -320,18 +320,18 @@
         </ol>
     </div>
 
-    <p>The <b>username</b> parameter is the account name the user wishes to register. It must be one that is not
-        already registered, or an error will occur and no account will be registered</p>
+    <p>The <b>username</b> parameter is the account name the user wishes to register.  It must be one that is not
+        already registered, or an error will occur and no account will be registered.</p>
 
-    <p>The <b>password</b> parameter is the password the account will be registered with</p>
+    <p>The <b>password</b> parameter is the password the account will be registered with.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.register is used to create a persistent account the user can use to interact with the Knecht database.
-        Without an account, a user cannot store their data on the server or participate in groups</p>
+        Without an account, a user cannot store their data on the server or participate in groups.</p>
 
     <p class="subitem">Return value</p>
 
@@ -345,7 +345,7 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.session</p>
 
@@ -354,13 +354,13 @@
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
-            //registers user 'ian' with password '1234'<br/>
-            K.register( 'ian', '1234', function(res) {<br/>
+            //registers user 'Ian' with password '1234'<br/>
+            K.register( 'Ian', '1234', function(res) {<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) alert('Account registered');<br/>
             });</p>
     </div>
@@ -369,7 +369,7 @@
 <div class="section">
     <p class="subhead" id="unregister">K.unregister ( callback )</p>
 
-    <p>K.unregister removes a user and all of their associated data from the server</p>
+    <p>K.unregister removes a user and all of their associated data from the server.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -378,13 +378,13 @@
         </ol>
     </div>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.unregister is used when a user no longer wishes to use Knecht and would like to remove themself from it's
-        database. The user must be logged in in order to unregister, or else an error will occur</p>
+        database.  The user must be logged in in order to unregister, or else an error will occur.</p>
 
     <p class="subitem">Return value</p>
 
@@ -397,17 +397,17 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //logs in as a user<br/>
-            K.login( 'ian', '1234', function(res) {<br/>
+            K.login( 'Ian', '1234', function(res) {<br/>
             //delete user if login successful<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.unregister(function(res){<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) alert('Account deleted');<br/>
@@ -419,7 +419,7 @@
 <div class="section">
     <p class="subhead" id="login">K.login ( username, password, callback )</p>
 
-    <p>K.login authenticates an existing user account and generates a session key for it</p>
+    <p>K.login authenticates an existing user account and generates a session key for it.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -430,18 +430,18 @@
         </ol>
     </div>
 
-    <p>The <b>username</b> parameter is the name of the account the user wishes to log in as. It must be one that was
+    <p>The <b>username</b> parameter is the name of the account the user wishes to log in as.  It must be one that was
         registered previously, or an error will occur.</p>
 
-    <p>The <b>password</b> parameter is the password to be used for the login. It must match that registered for the
-        account identified by The <b>username</b> parameter, or an error will occur</p>
+    <p>The <b>password</b> parameter is the password to be used for the login.  It must match that registered for the
+        account identified by The <b>username</b> parameter, or an error will occur.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
-    <p>K.login is used to access a user's persistent account data and groups. Logging in invalidates previous session
+    <p>K.login is used to access a user's persistent account data and groups.  Logging in invalidates previous session
         keys, and therefore a user may only be logged in from one location at a time.</p>
 
     <p class="subitem">Return value</p>
@@ -456,7 +456,7 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.session</p>
 
@@ -465,13 +465,13 @@
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
-            //logs in user 'ian' with password '1234'<br/>
-            K.login( 'ian', '1234', function(res) {<br/>
+            //logs in user 'Ian' with password '1234'<br/>
+            K.login( 'Ian', '1234', function(res) {<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) alert('login successful');<br/>
             });</p>
     </div>
@@ -480,7 +480,7 @@
 <div class="section">
     <p class="subhead" id="logout">K.logout ( callback )</p>
 
-    <p>K.logout invalidates a user's session key, requiring them to log in again to continue using Knecht</p>
+    <p>K.logout invalidates a user's session key, requiring them to log in again to continue using Knecht.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -489,13 +489,13 @@
         </ol>
     </div>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.logout is used when a user is finished using Knecht and wishes to prevent other users with access to their
-        computer from using their account. The user must be logged in in order to logout, or else an error will occur</p>
+        computer from using their account.  The user must be logged in in order to logout, or else an error will occur.</p>
 
     <p class="subitem">Return value</p>
 
@@ -508,17 +508,17 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //logs in as a user<br/>
-            K.login( 'ian', '1234', function(res) {<br/>
+            K.login( 'Ian', '1234', function(res) {<br/>
             //logout if login successful<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.logout(function(res){<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) alert('Logged out');<br/>
@@ -531,7 +531,7 @@
     <p class="subhead" id="recoverpassword">K.recoverPassword ( username, callback )</p>
 
     <p>K.recoverPassword sends an email containing a user's password to that user, if their registered name is a valid
-        email address</p>
+        email address.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -541,16 +541,16 @@
         </ol>
     </div>
 
-    <p>The <b>username</b> parameter is the name of the account whose password the user wishes to recover. It must be
+    <p>The <b>username</b> parameter is the name of the account whose password the user wishes to recover.  It must be
         one that was registered previously, or an error will occur.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.recoverPassword is used when a user has forgotten their password and wishes to regain access to their Knecht
-        account. It will only work if the username is a valid email address, but will not return an error if it is not.
+        account.  It will only work if the username is a valid email address, but will not return an error if it is not.
         The email will contain the user's current password.</p>
 
     <p class="subitem">Return value</p>
@@ -564,12 +564,12 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
@@ -585,7 +585,7 @@
 <div class="section">
     <p class="subhead" id="changepassword">K.changePassword ( password, callback )</p>
 
-    <p>K.changePassword changes the currently logged in user's registered password</p>
+    <p>K.changePassword changes the currently logged in user's registered password.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -596,16 +596,16 @@
     </div>
 
     <p>The <b>password</b> parameter is the new password the user wishes to use in future logins in place of
-        their old password</p>
+        their old password.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
     <p>K.changePassword is used when a user wishes to use a different password from the one they originally registered
         with, whether because it is easier to remember or if they believe that their original password has been
-        compromised. The user must be logged in to use this function, or an error will occur.</p>
+        compromised.  The user must be logged in to use this function, or an error will occur.</p>
 
     <p class="subitem">Return value</p>
 
@@ -618,17 +618,17 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //logs in as a user<br/>
-            K.login( 'ian', '1234', function(res) {<br/>
+            K.login( 'Ian', '1234', function(res) {<br/>
             //change password if login successful<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.changePassword('a7B!', function(res){<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) alert('password changed');<br/>
@@ -640,7 +640,7 @@
 <div class="section">
     <p class="subhead" id="putdata">K.putData ( field, data, callback )</p>
 
-    <p>K.putData stores single-player data on the knecht server for later retrieval</p>
+    <p>K.putData stores single-player data on the knecht server for later retrieval.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -651,23 +651,23 @@
         </ol>
     </div>
 
-    <p>The <b>field</b> parameter identifies the field or fields to be updated in the database. Fields that do not yet
-        exist in the database will be created, while existing ones will be updated with the new data. Each application
+    <p>The <b>field</b> parameter identifies the field or fields to be updated in the database.  Fields that do not yet
+        exist in the database will be created, while existing ones will be updated with the new data.  Each application
         has its own namespace for data fields to prevent collision.</p>
 
-    <p>The <b>data</b> parameter contains the data to be stored in the named fields. If the <b>field</b> parameter is
-        a string then data is interpreted to be the contents of that one field, but if <b>field</b> is an array then data
-        is interpreted as an array of data values to be stored in the corresponding field. If the length of the field and data
-        arrays does not match, an error will occur</p>
+    <p>The <b>data</b> parameter contains the data to be stored in the named fields.  If the <b>field</b> parameter is
+        a string then data is interpreted to be the contents of that one field, but if <b>field</b> is an array then
+        data is interpreted as an array of data values to be stored in the corresponding fields.  If the length of the
+        field and data arrays does not match, an error will occur.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
-    <p>K.putData is used to store single-player data on the server. Only the user with which the data is associated
-        may access or interact with data stored in this way. The user must be logged in and the client's application must
-        be set to use this function, or an error will occur</p>
+    <p>K.putData is used to store single-player data on the server.  Only the user with which the data is associated
+        may access or interact with data stored in this way.  The user must be logged in and the client's application
+        must be set to use this function, or an error will occur.</p>
 
     <p class="subitem">Return value</p>
 
@@ -680,19 +680,19 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //stores the object {x: 5, y: 4} in the fields<br/>
             //'p_spawn' and 'p_loc'<br/>
             var p_spawn = {x: 5, y: 4};<br/>
-            K.login( 'ian', '1234',<br/>
+            K.login( 'Ian', '1234',<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>function(res) {<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.putData(<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>
@@ -709,7 +709,7 @@
 <div class="section">
     <p class="subhead" id="getdata">K.getData ( field, callback )</p>
 
-    <p>K.putData retrieves stored single-player data from the knecht server</p>
+    <p>K.putData retrieves stored single-player data from the knecht server.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -719,15 +719,15 @@
         </ol>
     </div>
 
-    <p>The <b>field</b> parameter identifies the field or fields to be retrieved. Each application
+    <p>The <b>field</b> parameter identifies the field or fields to be retrieved.  Each application
         has its own namespace for data fields to prevent collision.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
-    <p>K.getData is used to retrieve a user's data from the server. Only the associated user may access this data,
+    <p>K.getData is used to retrieve a user's data from the server.  Only the associated user may access this data,
         and attempting to use this function without an application set or account logged in will result in an error.</p>
 
     <p class="subitem">Return value</p>
@@ -742,22 +742,22 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.data</p>
 
-    <p>A data containing members of the format 'field:value'. If a requested field was not present in the database,
+    <p>A data containing members of the format 'field:value'.  If a requested field was not present in the database,
         that member will return as undefined.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //retrieves data in the field 'p_spawn'<br/>
-            K.login( 'ian', '1234',<br/>
+            K.login( 'Ian', '1234',<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>function(res) {<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.getData(<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>
@@ -776,7 +776,7 @@
 <div class="section">
     <p class="subhead" id="deletedata">K.deleteData ( field, callback )</p>
 
-    <p>K.putData deletes stored single-player data from the knecht server</p>
+    <p>K.deleteData deletes stored single-player data from the knecht server.</p>
 
     <div class="specs">
         <p>Parameters:</p>
@@ -786,16 +786,17 @@
         </ol>
     </div>
 
-    <p>The <b>field</b> parameter identifies the field or fields to be deleted. Each application
+    <p>The <b>field</b> parameter identifies the field or fields to be deleted.  Each application
         has its own namespace for data fields to prevent collision.</p>
 
-    <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-        below return value as its sole argument</p>
+    <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+        below return value as its sole argument.</p>
 
     <p class="subitem">Usage</p>
 
-    <p>K.getData is used to delete a user's data from the server. This might be done if the user wishes to start with
-        a clean slate, or if an application needs to distinguish between a null value and one that does not exist at all</p>
+    <p>K.deleteData is used to delete a user's data from the server.  This might be done if the user wishes to start with
+        a clean slate, or if an application needs to distinguish between a null value and one that does not exist at
+        all.</p>
 
     <p class="subitem">Return value</p>
 
@@ -808,17 +809,17 @@
 
     <p class="subitem">.timestamp</p>
 
-    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+    <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
     <p class="subitem">.error</p>
 
-    <p>A string describing the type of error encountered. This member is only present if the function received an
-        error response from the server</p>
+    <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
 
     <div class="example">
         <p>// EXAMPLE:<br/>
             //deletes data in the field 'p_spawn'<br/>
-            K.login( 'ian', '1234',<br/>
+            K.login( 'Ian', '1234',<br/>
             <span>&nbsp;&nbsp;&nbsp;</span>function(res) {<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>if(!res.error) K.deleteData(<br/>
             <span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span><span>&nbsp;&nbsp;&nbsp;</span>
@@ -866,7 +867,7 @@
     <div class="section">
         <p class="subhead" id="getgroups">K.getGroups ( constraints, callback )</p>
 
-        <p>K.getGroups retrieves the list of groups that meet a given set of constraints</p>
+        <p>K.getGroups retrieves the list of groups that meet a given set of constraints.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -886,23 +887,24 @@
 
         <p class="subitem">.username</p>
 
-        <p>Only groups who the named user is a member of will be included</p>
+        <p>Only groups who the named user is a member of will be included.</p>
 
         <p class="subitem">.group_name</p>
 
-        <p>A string giving the name of a group. Only the group whose name exactly matches will be included, if it exists</p>
+        <p>A string giving the name of a group.  Only the group whose name exactly matches will be included, if it
+            exists.</p>
 
         <p class="subitem">.application</p>
 
-        <p>Only groups for the named application will be included</p>
+        <p>Only groups for the named application will be included.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
         <p>K.getGroups is used to retrieve lobby and user profile information, or to check whether a group with a given
-            name exists or not</p>
+            name exists or not.</p>
 
         <p class="subitem">Return value</p>
 
@@ -916,17 +918,17 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.groups</p>
 
-        <p>An array of all group names from the database matching the constraints. This member is only present if the
-            function completed successfully</p>
+        <p>An array of all group names from the database matching the constraints.  This member is only present if the
+            function completed successfully.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
@@ -934,7 +936,7 @@
                 var in_class;<br/>
                 //Checks whether the user is a member of the group<br/>
                 K.getGroups( { <br/>
-                <span>&nbsp;&nbsp;&nbsp;</span>username: "patrick",<br/>
+                <span>&nbsp;&nbsp;&nbsp;</span>username: "Patrick",<br/>
                 <span>&nbsp;&nbsp;&nbsp;</span>group: "classof2014",<br/>
                 },<br/>
                 function(res)<br/>
@@ -947,7 +949,7 @@
     <div class="section">
         <p class="subhead" id="startgroup">K.startGroup ( group_name, callback )</p>
 
-        <p>K.startGroup registers a new group on the server with the calling user as its host</p>
+        <p>K.startGroup registers a new group on the server with the calling user as its host.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -959,14 +961,14 @@
 
         <p>The <b>group_name</b> parameter is the name that will be given to the new group</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
         <p>K.startGroup is called in order to allocate a multi-user data space for use in multiplayer games or other
-        networked applications. The name of the group must be unique, and the calling user must be logged in and have
-        the application internal variable set on their client, or an error will occur</p>
+        networked applications.  The name of the group must be unique, and the calling user must be logged in and have
+        the application internal variable set on their client, or an error will occur.</p>
 
         <p class="subitem">Return value</p>
 
@@ -979,12 +981,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
@@ -1004,7 +1006,7 @@
     <div class="section">
         <p class="subhead" id="closegroup">K.closeGroup ( group_name, callback )</p>
 
-        <p>K.closeGroup deletes a group and removes all of its data from the server</p>
+        <p>K.closeGroup deletes a group and removes all of its data from the server.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -1014,15 +1016,15 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group to be deleted</p>
+        <p>The <b>group_name</b> parameter is the name of the group to be deleted.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.startGroup is called when a group has served its purpose and the host wishes to terminate it. The calling
-        user must be the host of the group and must be logged in, or an error will occur. All users subscribed to updates
+        <p>K.startGroup is called when a group has served its purpose and the host wishes to terminate it.  The calling
+        user must be the host of the group and must be logged in, or an error will occur.  All users subscribed to updates
         at the time of closing will receive an empty response notifying them of the closure.</p>
 
         <p class="subitem">Return value</p>
@@ -1036,12 +1038,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
@@ -1059,7 +1061,7 @@
     <div class="section">
         <p class="subhead" id="addmember">K.addMember ( group_name, member, callback )</p>
 
-        <p>K.addMember adds a user to the member list of a group so that they can receive updates</p>
+        <p>K.addMember adds a user to the member list of a group so that they can receive updates.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -1070,19 +1072,19 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group the user will be added to</p>
+        <p>The <b>group_name</b> parameter is the name of the group to which the user will be added.</p>
 
-        <p>The <b>member</b> parameter is the name of the user who will be added</p>
+        <p>The <b>member</b> parameter is the name of the user who will be added.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.addMember inserts a user into the group's members set, which will allow that user to receive updates related
-        to that group from the server. The calling user must be logged in and the host of the group being added to, and
-        the member must be a registered account. Otherwise, an error will occur. The added member will only be notified
-        if they have subscribed to updates with K.listenUpdate</p>
+        <p>K.addMember inserts a user into the group's members set, which will allow that user to receive updates
+        related to that group from the server.  The calling user must be logged in and the host of the group being added
+        to, and the member must be a registered account.  Otherwise, an error will occur.  The added member will only be
+        notified if they have subscribed to updates with K.listenUpdate.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1095,12 +1097,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
@@ -1116,7 +1118,7 @@
     <div class="section">
         <p class="subhead" id="removemember">K.removeMember ( group_name, member, callback )</p>
 
-        <p>K.removeMember removes a user from the member list of a group so that they no longer receive updates</p>
+        <p>K.removeMember removes a user from the member list of a group so that they no longer receive updates.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -1127,19 +1129,19 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group the user will be removed from</p>
+        <p>The <b>group_name</b> parameter is the name of the group from which the user will be removed.</p>
 
-        <p>The <b>member</b> parameter is the name of the user who will be removed</p>
+        <p>The <b>member</b> parameter is the name of the user who will be removed.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.removeMember removes that user from the group's internal member list. This will prevent that user from
-        recieving any further data related to that group via K.listenUpdate. The calling user must be logged in and the
-        host of the group being added to, and the member must be a registered account. Otherwise, an error will occur. The
-        server still returns a success even if the specified user was not a member of the group to begin with.</p>
+        <p>K.removeMember removes that user from the group's internal member list.  This will prevent that user from
+        receiving any further data related to that group via K.listenUpdate.  The calling user must be logged in and the
+        host of the group being added to, and the member must be a registered account.  Otherwise, an error will occur.
+        The server still returns a success even if the specified user was not a member of the group to begin with.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1152,12 +1154,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
 
         <div class="example">
             <p>// EXAMPLE:<br/>
@@ -1182,19 +1184,19 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group the user will be removed from</p>
+        <p>The <b>group_name</b> parameter is the name of the group from which the data will be retrieved.</p>
 
         <p>The <b>field</b> parameter is the name(s) of the data field(s) the user wants the value of.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.getGroupData is used whenever a user requires shared data from the server. The data may be saved and used locally,
-            but the application should not continue using old data after an update notification occurs. It need not be called
-        if the new value was included with the update callback itself. The user must have permission to read the fields specified,
-        otherwise their value will return undefined</p>
+        <p>K.getGroupData is used whenever a user requires shared data from the server.  The data may be saved and used
+        locally, but the application should not continue using old data after an update notification occurs.  It need not
+        be called if the new value was included with the update callback itself.  The user must have permission to read
+        the fields specified, otherwise their value will return undefined.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1208,54 +1210,57 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.data</p>
 
-        <p>A data containing members of the format 'field:value'. If a requested field was not present in the database,
-            or if the user does not have permission to read it, that member will return as undefined.</p>
+        <p>An object containing members of the format 'field:value'.  If a requested field was not present in the
+            database, or if the user does not have permission to read it, that member will return as undefined.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
     </div>
 
     <div class="section">
         <p class="subhead" id="submitupdate">K.submitUpdate ( group_name, field, data, callback, member, permission )</p>
 
-        <p>K.submitUpdate updates the shared data values of a group and optionally sets read permissions on those fields</p>
+        <p>K.submitUpdate updates the shared data values of a group and optionally sets read permissions on those
+            fields.</p>
 
         <div class="specs">
             <p>Parameters:</p>
             <ol>
                 <li><b>group_name</b> : <em>string</em></li>
-                <li><b>field</b> : <em>string or array of string</em></li>
+                <li><b>field</b> : <em>string or array of strings</em></li>
                 <li><b>data</b> : <em>any</em></li>
                 <li><b>callback</b> : <em>function</em></li>
-                <li><b>member</b> : <em>string or array of string</em></li>
-                <li><b>permission</b> : <em>boolean or array of boolean or array of array of boolean</em></li>
+                <li><b>member</b> : <em>string or array of strings</em></li>
+                <li><b>permission</b> : <em>boolean or array of boolean or array of array of booleans</em></li>
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group being updated</p>
+        <p>The <b>group_name</b> parameter is the name of the group being updated.</p>
 
         <p>The <b>field</b> parameter is the name(s) of the data field(s) the user wants to update.</p>
 
-        <p>The <b>data</b> parameter is the value(s) the user wants to store in the above fields</p>
+        <p>The <b>data</b> parameter is the value(s) the user wants to store in the above fields.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
-        <p>The <b>member</b> parameter is the user(s) who will have their read permission on the above fields changed</p>
+        <p>The <b>member</b> parameter is the user(s) who will have their read permission on the above fields
+            changed.</p>
 
-        <p>The <b>permission</b> parameter is the value(s) that the above user(s)' read permissions will be set to</p>
+        <p>The <b>permission</b> parameter is the value(s) that the above user(s)' read permissions will be set to.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.submitUpdate is called by the host of a group whenever they need to notify the other members of some change in the
-        data. Updates will remain on the server until acknowledged by their target user. If either the member or permissions
-        parameters are defined, then the server will also perform a setPermissions function before responding.</p>
+        <p>K.submitUpdate is called by the host of a group whenever they need to notify the other members of some change
+        in the data.  Updates will remain on the server until acknowledged by their target user.  If either the member or
+        permissions parameters are defined, then the server will also perform a setPermissions function before
+        responding.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1268,12 +1273,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
     </div>
 
     <div class="section">
@@ -1291,23 +1296,24 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group being updated</p>
+        <p>The <b>group_name</b> parameter is the name of the group being updated.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p>The <b>limit</b> parameter sets the maximum size a data value can be before it is not sent automatically with
-        an update notification. If this parameter is not set, then all updated data will be sent.</p>
+        an update notification.  If this parameter is not set, then all updated data will be sent.</p>
 
-        <p>The <b>clear</b> parameter is an array of update ids used to notify the server that they are safe to delete. This
-        parameter should not be set by the application in most cases</p>
+        <p>The <b>clear</b> parameter is an array of update ids used to notify the server that they are safe to delete.
+        This parameter should not be set by the application in most cases.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.listenUpdate should be called once in the application after first connecting to the group. Thereafter, the
-        subscription will automatically be renewed each time the server responds, unless an error occurs, the user is removed
-        from the group, or the user closes the application. No response to this request is sent unless one of the above happens.
-        If the user is removed from the group, there will be no updates, data, or clear field in the response.</p>
+        <p>K.listenUpdate should be called once in the application after first connecting to the group.  Thereafter, the
+        subscription will automatically be renewed each time the server responds, unless an error occurs, the user is
+        removed from the group, or the user closes the application.  No response to this request is sent unless one of
+        the above happens.  If the user is removed from the group, there will be no updates, data, or clear field in the
+        response.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1323,31 +1329,32 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.updates</p>
 
-        <p>An array containing the names of each of the updated fields this user has permission to read</p>
+        <p>An array containing the names of each of the updated fields this user has permission to read.</p>
 
         <p class="subitem">.data</p>
 
-        <p>Object containing field:data pairs for each of the updated fields who value is less than the limit in size</p>
+        <p>Object containing field:data pairs for each of the updated fields whose value is less than the limit in
+        size.</p>
 
         <p class="subitem">.clear</p>
 
-        <p>Array of strings identifying updates that the client has acknowledged. Those updates will be removed from the
+        <p>Array of strings identifying updates that the client has acknowledged.  Those updates will be removed from the
         server.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+        error response from the server.</p>
     </div>
 
     <div class="section">
         <p class="subhead" id="submitinput">K.submitInput ( group_name, input, callback )</p>
 
-        <p>K.submitInput sends user input to the server to be relayed to the host</p>
+        <p>K.submitInput sends user input to the server to be relayed to the host.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -1358,19 +1365,19 @@
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group the input is being sent to</p>
+        <p>The <b>group_name</b> parameter is the name of the group to which the input is being sent.</p>
 
-        <p>The <b>input</b> parameter is the input the user wants to make</p>
+        <p>The <b>input</b> parameter is the input the user wants to make.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
         <p class="subitem">Usage</p>
 
         <p>K.submitInput is called by non-host users to participate in a Knecht group, since non-host clients are not
-            trusted to alter the group data directly. No input is processed except by the host's application. Users should
-            use K.listenUpdate to listen for a response. This function should be used to notify a group that one wishes to
-        join it. </p>
+        trusted to alter the group data directly.  No input is processed except by the host's application.  Users should
+        use K.listenUpdate to listen for a response.  This function should be used to notify a group that one wishes to
+        join it.  </p>
 
         <p class="subitem">Return value</p>
 
@@ -1383,18 +1390,19 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
     </div>
 
     <div class="section">
         <p class="subhead" id="listeninput">K.listenInput ( group_name, callback, clear )</p>
 
-        <p>K.listenInput subscribes a client to receive notifications from the server when a user sends input to a group</p>
+        <p>K.listenInput subscribes a client to receive notifications from the server when a user sends input to a
+            group.</p>
 
         <div class="specs">
             <p>Parameters:</p>
@@ -1407,18 +1415,18 @@
 
         <p>The <b>group_name</b> parameter is the name of the group being updated</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the below
+            return value as its sole argument</p>
 
-        <p>The <b>clear</b> parameter is an array of input ids used to notify the server that they are safe to delete. This
-            parameter should not be set by the application in most cases</p>
+        <p>The <b>clear</b> parameter is an array of input ids used to notify the server that they are safe to delete.
+            This parameter should not be set by the application in most cases</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.listenInput should be called once in the application by the host. Thereafter, the
-            subscription will automatically be renewed each time the server responds, unless an error occurs, the group is
-            closed, or the user closes the application. No response to this request is sent unless one of the above happens.
-            If the group is closed, there will be no updates, data, or clear field in the response.</p>
+        <p>K.listenInput should be called once in the application by the host.  Thereafter, the subscription will
+        automatically be renewed each time the server responds, unless an error occurs, the group is closed, or the user
+        closes the application.  No response to this request is sent unless one of the above happens.  If the group is
+        closed, there will be no updates, data, or clear field in the response.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1426,64 +1434,66 @@
 
         <ul>
             <li><b>.timestamp</b> : <em>number</em></li>
-            <li><b>.inputs</b> : <em>array of object</em></li>
-            <li><b>.clear</b> : <em>array of string</em></li>
+            <li><b>.inputs</b> : <em>array of objects</em></li>
+            <li><b>.clear</b> : <em>array of strings</em></li>
             <li><b>.error</b> : <em>string</em></li>
         </ul>
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.inputs</p>
 
-        <p>Each element of the inputs member is an object with members <b>.username</b> containing the name of the sending
-        user, <b>timestamp</b> marking when the server recieved the input, and <b>input</b>, which is the input data itself</p>
+        <p>Each element of the inputs member is an object with members <b>.username</b> containing the name of the
+        sending user, <b>timestamp</b> marking when the server received the input, and <b>input</b>, which is the input
+        data itself.</p>
 
         <p class="subitem">.clear</p>
 
-        <p>Array of strings identifying inputs that the client has acknowledged. Those updates will be removed from the
+        <p>Array of strings identifying inputs that the client has acknowledged.  Those updates will be removed from the
             server.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
     </div>
 
     <div class="section">
         <p class="subhead" id="setpermisson">K.setPermission ( group_name, field, permission, callback, member )</p>
 
-        <p>K.setPermission changes whether a user is allowed to read data from group fields</p>
+        <p>K.setPermission changes whether a user is allowed to read data from group fields.</p>
 
         <div class="specs">
             <p>Parameters:</p>
             <ol>
                 <li><b>group_name</b> : <em>string</em></li>
-                <li><b>field</b> : <em>string or array of string</em></li>
-                <li><b>permission</b> : <em>boolean or array of boolean or array of array of boolean</em></li>
+                <li><b>field</b> : <em>string or array of strings</em></li>
+                <li><b>permission</b> : <em>boolean or array of booleans or array of arrays of booleans</em></li>
                 <li><b>callback</b> : <em>function</em></li>
-                <li><b>member</b> : <em>string or array of string</em></li>
+                <li><b>member</b> : <em>string or array of strings</em></li>
 
             </ol>
         </div>
 
-        <p>The <b>group_name</b> parameter is the name of the group being updated</p>
+        <p>The <b>group_name</b> parameter is the name of the group being updated.</p>
 
         <p>The <b>field</b> parameter is the name(s) of the data field(s) whose permissions are being changed.</p>
 
-        <p>The <b>permission</b> parameter is the value(s) that the above user(s)' read permissions will be set to</p>
+        <p>The <b>permission</b> parameter is the value(s) to which the above user(s)' read permissions will be set.</p>
 
-        <p>The <b>callback</b> parameter is an function that is called once the server has responded, and takes the
-            below return value as its sole argument</p>
+        <p>The <b>callback</b> parameter is a function that is called once the server has responded, and takes the
+            below return value as its sole argument.</p>
 
-        <p>The <b>member</b> parameter is the user(s) who will have their read permission on the above fields changed</p>
+        <p>The <b>member</b> parameter is the user(s) who will have their read permission on the above fields
+            changed.</p>
 
         <p class="subitem">Usage</p>
 
-        <p>K.setPermissions is used to give non-host users access to a group's shared data. Knecht operates on a whitelist
-        basis, such that only users with explicit permission may read any data field. Passing the host's username as a member
-        acts as a wildcard, allowing all users (even non-member accounts) to read that field.</p>
+        <p>K.setPermissions is used to give non-host users access to a group's shared data.  Knecht operates on a
+        whitelist basis, such that only users with explicit permission may read any data field.  Passing the host's
+        username as a member acts as a wildcard, allowing all users (even non-member accounts) to read that field.</p>
 
         <p class="subitem">Return value</p>
 
@@ -1496,12 +1506,12 @@
 
         <p class="subitem">.timestamp</p>
 
-        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970</p>
+        <p>Indicates the time at which the server sent its response, in milliseconds since January 1st, 1970.</p>
 
         <p class="subitem">.error</p>
 
-        <p>A string describing the type of error encountered. This member is only present if the function received an
-            error response from the server</p>
+        <p>A string describing the type of error encountered.  This member is only present if the function received an
+            error response from the server.</p>
     </div>
 
 </div>
