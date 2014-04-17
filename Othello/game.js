@@ -47,8 +47,8 @@ PS.init = function( system, options ) {
 	// Do this FIRST to avoid problems!
 	// Otherwise you will get the default 8x8 grid
 
-    K.setApplication("Othello");
-    K.setAddress("http://localhost:8088");
+    K.config({"address": "http://localhost:8088", "application": "Othello"});
+    //K.setAddress("http://localhost:8088");
 
     K.register("p2", "p2", function(result, time){
         if(result.error){
