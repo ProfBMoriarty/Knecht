@@ -1,24 +1,28 @@
+//TODO: cleanup beyond this point
+
 var K = {};
 (function ()
 {
     "use strict";
 
-    //region Global Variables
-    //values rarely changed during a session, stored so they do not need to be provided explicitly to each function call
-    var _address = 'http://perlenspiel.cs.wpi.edu/';  //the address of the server, with trailing slash
-    var _application = '';  //application name; clients can only act on data using the same app name
-    var _error_callback = function(functionName, err){}; //function to be called in case of request failure
-    var _username = '';  //the user's username address serving as the name of his account
-    var _password = '';  //the user's password, used to validate the account
-    var _session = ''; //the authentication token from the most recent login
-    //endregion
+    var _internal =
+    {
+        server: 'http://localhost:8080/', //http address of server, with port number and trailing slash
+        application : '', //name of application using Knecht
 
-    //region Utility Functions
+        username : '', //name of currently logged in user
+        password : '', //password of currently logged in user
+        session : '', //id of current login session
+
+        group_name : '', //name of currently connected group
+
+        error : null //function callback for handling error responses; takes 2 strings as arguments ( function name, error )
+    };
 
     /**
-     * Checks whether a given string can be parsed as a JSON object
+     * Checks whether a given string is valid JSON or not
      * @param string the string to be tested
-     * @returns {boolean} true if the string is valid JSON, false otherwise
+     * @returns {boolean}
      * @private
      */
     function _isJSON ( string )
@@ -35,519 +39,640 @@ var K = {};
     }
 
     /**
-     * This function is used as a callback for server requests.
-     * @param result is the result of the query
-     * @param fp is a function from this file that accesses the server
-     * @param functionName is a string that is the name of fp
-     * @param args is an array of up to 5 arguments suitable for the fp function
-     * @param callback a function to be called once a response is received from the server
+     * Sends a request to the server and passes its response to an internal callback function
+     * @param method the http method requested
+     * @param path the resource requested
+     * @param body (optional) content to be sent too large or sensitive to be included in the path
+     * @param callback function taking result object as sole parameter
+     * @private
      */
-    function _autoRelog(result, fp, functionName, args, callback)
+    function _sendRequest( method, path, body, callback )
     {
-        if  (result.error === 'Expired session' )
+        if ( callback === undefined )
+        {//if no body argument passed, arrange arguments properly
+            callback = body;
+            body = undefined;
+        }
+        var request = new XMLHttpRequest();
+        request.onreadystatechange = function()
+        {
+            if( request.readyState === request.DONE )
+            {//once response has been received in full
+                if( _isJSON( request.responseText ) )
+                {//Body of a proper Knecht server response will always be a JSON string
+                    callback( JSON.parse( request.responseText ) );
+                }
+                else
+                {//if a JSON string is not in the response text, then either the server is down or not a Knecht server
+                    callback( { error: 'Connection Error' } );
+                }
+            }
+        };
+        request.open( method, encodeURI(_internal.server) + path, true );
+        request.send( JSON.stringify( body ) );
+    }
+
+    /**
+     * Attempts to re login if a function receives an Expired Session error response
+     * @param result the original result of the function
+     * @param function_pointer a pointer to the function
+     * @param function_name the name of the function
+     * @param args the original arguments to the function
+     * @private
+     */
+    function _autoRelog(result, function_pointer, function_name, args )
+    {
+        if  ( result.error === 'Expired Session' )
         {//if request failed because session has timed out
-            K.login(_username, _password, function(login_result)
+            K.login(_internal.username, _internal.password, function(login_result)
             {//attempt to log back in using last used username and password
-                if (!login_result.error)
+                if ( !login_result.error )
                 {//if login successful, re-attempt original request
-                    fp(args[0], args[1], args[2], args[3], args[4]);
+                    function_pointer( args[0], args[1], args[2], args[3], args[4] );
                 }
                 else
                 {//otherwise, return original failure result
-                    callback(result);
+                    args[args.length - 1]( result );
                 }
             });
         }
         else
         {//otherwise, return original request result
-            callback(result);
-        }
-        if ( result.error && _error_callback )
-        {
-            _error_callback(functionName, result.error);
-        }
-    }
 
-    //endregion
-
-    /**
-     *Submits a request to the previously specified server address and relays the response to a callback function
-     * @param method HTTP method string indicating the action to be taken on the resource
-     * @param path URI string indicating the resource to be requested
-     * @param callback function called when server response is received
-     * @param body optional parameter containing data to be sent in the body of the request
-     * @private
-     */
-    function _sendRequest ( method, path, callback, body ) //sends a request to the server and passes result to callback
-    {
-        var request = new XMLHttpRequest();
-        request.onreadystatechange = function ()
-        {
-            if ( request.readyState === request.DONE )
-            {//once response has been received in full
-                if( _isJSON(request.responseText) )
-                {//Body of a proper Knecht server response will always be a JSON string
-                    callback( JSON.parse(request.responseText ) );
-                }
-                else
-                {//if a JSON string is not in the response text, then either the server is down or is not a Knecht server
-                    callback( {error: 'No Response Or Response Text Was Not JSON'} );
-                }
+            if(function_pointer === K.submitUpdate)
+            {
+                args[args.length - 3](result);
             }
-        };
-        request.open( method, _address + path, true );
-        request.send( JSON.stringify(body) );
+            else if(function_pointer === K.setPermission)
+            {
+                args[args.length - 2](result);
+            }
+            else
+            {
+                args[args.length - 1](result);
+            }
+        }
+        if ( result.error )
+        {
+            _internal.error(function_name, result.error );
+        }
     }
 
     /**
-     * Optionally sets client configuration variables then returns an object containing their current values
-     * @param config OPTIONAL object parameter whose members are configuration variables for the Knecht client
-     *              address: string indicating address of the server, with a trailing slash
-     *              application: string naming the application using Knecht
-     *              error_callback: function called if server error occurs
-     *              username: username string used in login
-     *              password: password string used in login
-     *              session: session id string returned by valid login
-     * @returns {{address: *, application: *, error_callback: *, username: *, password: *, session: *}}
+     * Sets Knecht client's internal variables and returns their current values
+     * @param options : object containing new values for internal variables of the same name. Valid members are:
+     *      server : http address of Knecht server, with port number and trailing slash
+     *      application : name of application using Knecht
+     *      username : name of currently logged in user
+     *      password : password of currently logged in user
+     *      session : id of current login session
+     *      group_name: name of currently connected group
+     *      error: function callback for handling error responses; takes 2 strings as arguments ( function name, error )
+     * @returns {{server: string, application: string, username: string, password: string, session: string, error: null}}
      */
-    K.config = function ( config )
+    K.configure = function( options )
     {
-        if( typeof config === 'object' )
-        {//only bother to check if config is present and of correct type. set each variable if present and right type
-            _address = typeof config.address === 'string' ? encodeURI( config.address ) : _address;
-            _application = typeof config.application === 'string' ? encodeURIComponent( config.application ) : _application;
-            _error_callback = typeof config.error_callback === 'function' ? config.error_callback : _error_callback;
-            _username = typeof config.username === 'string' ? encodeURIComponent( config.username ) : _username;
-            _password = typeof config.password === 'string' ? config.password : _password;
-            _session = typeof config.session === 'string' ? encodeURIComponent( config.session ) : _session;
+        if( typeof options === 'object' )
+        {
+            if( typeof options.server === 'string' )
+            {
+                _internal.server = options.server;
+            }
+            if( typeof options.application === 'string' )
+            {
+                _internal.application = options.application;
+            }
+            if( typeof options.username === 'string' )
+            {
+                _internal.username = options.username;
+            }
+            if( typeof options.password === 'string' )
+            {
+                _internal.password = options.password;
+            }
+            if( typeof options.session === 'string' )
+            {
+                _internal.session = options.session;
+            }
+            if( typeof options.group_name === 'string' )
+            {
+                _internal.group_name = options.group_name;
+            }
+            if( typeof options.error === 'function' )
+            {
+                _internal.error = options.error;
+            }
         }
-        return {
-            address: _address,
-            application: _application,
-            error_callback: _error_callback,
-            username: _username,
-            password: _password,
-            session: _session
-        };
+        return _internal;
     };
 
-    //region User Functions
-
-    //region Account functions
-
     /**
-     * Gets a list of users on this server according to a set of constraints
-     * @param constraints object with members defining the constraints returned users must meet. Possible conditions are:
-     *              username: a user will only be returned if their username exactly matches this string
-     *              group_name: a user will only be returned if they are the host or a member of the group matching this string
-     *              online: if this variable is true, a user will only be returned if they have an unexpired session
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: optional, a string specifying the error that occurred processing the request
-     *        users: optional, an array of username strings meeting the request constraints
+     * Retrieves a list of Knecht accounts that fit a set of constraints
+     * @param constraints the constraints that determine which accounts are include in the list. Valid members are:
+     *      username : string the account's username must exactly match
+     *      group_name : name of group the account must be a member of
+     *      online : if true, the account must have a currently valid session
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     *      users: optional, an array of username strings meeting the request constraints
      */
     K.getUsers = function ( constraints, callback )
     {
+        if( callback === undefined )
+        {//if no constraints argument passed, arrange arguments properly
+            callback = constraints;
+            constraints = {};
+        }
+        if( typeof constraints.group_name === 'string' )
+        {
+            constraints.application = _internal.application;
+        }
         _sendRequest( "GET", "users" +
             "?constraints=" + encodeURIComponent( JSON.stringify( constraints ) ),
-            function ( res )
+            function ( result )
             {
-                callback( res );
-                if( res.error)
+                callback( result );
+                if( result.error )
                 {
-                    _error_callback('getUsers', res.error );
+                    _internal.error('K.getUsers()', result.error );
                 }
-            },
-            null
+            }
         );
     };
 
     /**
-     * Registered a new user account on the server and logs it in on this client
-     * @param username the username to be registered
-     * @param password the password to be used for the new account
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     * @param timeout OPTIONAL how long a session key remains valid for in minutes. default 15
+     * Registers a new user account if it does not already exist
+     * @param username name to give the account
+     * @param password password used to log into account
+     * @param timeout how many minutes the resulting login session will remain valid without activity
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     *      session: optional, key for the current login session. Only present if no error occurred.
      */
-    K.register = function ( username, password, callback, timeout )
+    K.register = function ( username, password, timeout, callback )
     {
-        K.config( { username : username, password: password } );
+        if( callback === undefined )
+        {//if no timeout argument passed, arrange arguments properly
+            callback = timeout;
+            timeout = undefined;
+        }
+        K.configure( { username : username, password: password } );
         _sendRequest( "POST", "users" +
-                "?username=" + _username +
-                "&timeout=" + encodeURIComponent( timeout ),
-            function ( res )
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&timeout=" + encodeURIComponent( timeout ),
+            _internal.password,
+            function ( result )
             {
-                if ( !res.error )
+                if ( !result.error )
                 {
-                    _session = encodeURIComponent( res.session );
+                    _internal.session = result.session;
                 }
-                callback( res );
-                if( res.error)
+                callback( result );
+                if( result.error)
                 {
-                    _error_callback( 'register', res.error );
+                    _internal.error( 'K.register()', result.error );
                 }
-            },
-            _password
+            }
         );
     };
 
     /**
-     * Unregisters a user account from the server and removes all of its data
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     * If first call failed due to expired session_id, knecht will attempt to log in with stored details and try again
+     * Generates a new login session for an existing user account
+     * @param username name of account to log into
+     * @param password password used to log into account
+     * @param timeout how many minutes the resulting login session will remain valid without activity
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     *      session: optional, key for the current login session. Only present if no error occurred.
      */
-    K.unregister = function(callback)
+    K.login = function ( username, password, timeout, callback )
     {
-        _sendRequest("DELETE", "users" +
-            "?username=" + _username +
-            "&session=" + _session,
-            function(result)
-            {
-                _autoRelog(result, K.unregister, 'unregister', [callback], callback);
-            },
-            null
-        );
-    };
-
-    /**
-     * Authenticates account details to server and receives a session token allowing use of functions on that user
-     * @param username the account to be logged in
-     * @param password the password of the account to be logged in
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     */
-    K.login = function ( username, password, callback )
-    {
-        K.config( { username : username, password: password } );
+        if( callback === undefined )
+        {//if no timeout argument passed, arrange arguments properly
+            callback = timeout;
+            timeout = undefined;
+        }
+        K.configure( { username : username, password: password } );
         _sendRequest( "PUT", "users/session" +
-            "?username=" + _username,
-            function (result )
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&timeout=" + encodeURIComponent( timeout ),
+            _internal.password,
+            function ( result )
             {
-                if (!result.error)
+                if ( !result.error )
                 {
-                    _session = encodeURIComponent( result.session );
+                    _internal.session = result.session;
                 }
                 callback( result );
                 if( result.error )
                 {
-                    _error_callback('login', result.error );
+                    _internal.error( 'K.login()', result.error );
                 }
-            },
-            _password
+            }
         );
     };
 
     /**
-     * Expires a session token and removes that user's stored login information from the client
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
+     * Deletes the logged in user account and any associated data from the server
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     */
+    K.unregister = function( callback )
+    {
+        _sendRequest( "DELETE", "users" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ),
+            function( result )
+            {
+                K.configure( { username: '', password: '', session: '' } );
+                _autoRelog( result, K.unregister, 'K.unregister()', [ callback ] );
+            }
+        );
+    };
+
+    /**
+     * Invalidates the currently active login session
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
      */
     K.logout = function( callback )
     {
-        _sendRequest("DELETE", "users/session" +
-            "?username=" + _username +
-            "&session=" + _session,
-            function( res )
+        _sendRequest( "DELETE", "users/session" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ),
+            function( result )
             {
-                K.config( {username: '', password: ''} );
-                callback( res );
-                if( res.error )
+                K.configure( { username: '', password: '', session: '' } );
+                callback( result );
+                if( result.error )
                 {
-                    _error_callback( 'logout', res.error );
+                    _internal.error( 'K.logout()', result.error );
                 }
-            },
-            null
+            }
         );
     };
 
     /**
-     * Causes an email to be sent to the given email address with the registered password
-     * @param username is a string that is the email address used to identify the account in question
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        status: a string specifying whether result of the request was K.OK, K.UNAUTHORIZED, K.INVALID, or K.ERROR
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     */
-    K.recoverPassword = function(username, callback)
-    {
-        _sendRequest("GET", 'users/password' +
-            '?username=' + encodeURIComponent( username ),
-            function(result)
-            {
-                callback(result);
-                if ( result.error )
-                {
-                    _error_callback('recoverPassword', result.error );
-                }
-            },
-            null
-        );
-    };
-
-    /**
-     * Changes the password of the currently logged in account.
-     * @param password is a string that is the new password of the account
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
+     * Changes the password of the currently logged in account
+     * @param password the new password for this account
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
      */
     K.changePassword = function( password, callback )
     {
         _sendRequest("PUT", "users/password" +
-            "?username=" + _username +
-            "&session=" + _session,
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ),
+            password,
             function ( result )
             {
-                if (result.error === 'Expired session')
+                if (result.error === 'Expired Session' )
                 {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if (!login_result.error)
+                    K.login( _internal.username, _internal.password, function ( login_result )
                         {
-                            K.changePassword( password, callback );
+                            if ( !login_result.error )
+                            {
+                                K.changePassword( password, callback );
+                            }
+                            else
+                            {
+                                callback( result );
+                            }
                         }
-                        else
-                        {
-                            callback( result );
-                        }
-                    }
                     );
                 }
                 else
                 {
-                    _password = password;
+                    if( !result.error )
+                    {
+                        _internal.password = password;
+                    }
                     callback( result );
                 }
                 if ( result.error )
                 {
-                    _error_callback( 'changePassword', result.error );
+                    _internal.error( 'K.changePassword()', result.error );
                 }
-            },
-            password
+            }
         );
     };
-    //endregion
-
-    //region Data functions
 
     /**
-     * Submits single-user data to be saved on the server for the current user and app
-     * @param field either a string naming the field to be updated, or an array of such
-     * @param data the data to be stored in the specified fields. If field is an array this must be one of the same length
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
+     * Stores user personal data on the Knecht server
+     * @param field names of the data fields to be changed
+     * @param data data to be stored
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
      */
     K.putData = function ( field, data, callback )
     {
         _sendRequest( "PUT", "users/data" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&application=" + _application +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&field=" + encodeURIComponent( JSON.stringify( field ) ),
+            data,
             function ( result )
             {
-                _autoRelog(result, K.putData, 'putData', [field, data, callback], callback);
-            },
-            data
+                _autoRelog( result, K.putData, 'K.putData()', [ field, data, callback ] );
+            }
         );
     };
+
     /**
-     * Submits single-user data to be retrieved from the server for the current user and app
-     * @param field either a string naming the field to be retrieved, or an array of such
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     *        data: if present, an object containing the retrieved data with fields as member names.
-     *              A field is undefined if it was not found on the server
+     * Retrieves user personal data from the Knecht server
+     * @param field the fields whose values are requested
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     *      data: optional, an object whose members are the requested fields and their values. Only present if no error occurred.
      */
     K.getData = function ( field, callback )
     {
         _sendRequest( "GET", "users/data" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&application=" + _application +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&field=" + encodeURIComponent( JSON.stringify( field ) ),
             function ( result )
             {
-                _autoRelog(result, K.getData, 'getData', [field, callback], callback);
-            },
-        null
+                _autoRelog( result, K.getData, 'K.getData()', [ field, callback ] );
+            }
         );
     };
+
     /**
-     * Submits single-user data to be deleted from the server
-     * @param field either a string naming the field to be deleted, or an array of such
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
+     * Removes user personal data from the Knecht server
+     * @param field names of the data fields to be deleted
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
      */
     K.deleteData = function ( field, callback )
     {
-        _sendRequest( "DELETE","users/data" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&application=" + _application +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
+        _sendRequest( "DELETE", "users/data" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&field=" + encodeURIComponent( JSON.stringify( field ) ),
             function (result )
             {
-                _autoRelog( result, K.deleteData, 'deleteData', [field, callback], callback);
-            },
-        null
+                _autoRelog( result, K.deleteData, 'K.deleteData()', [ field, callback ] );
+            }
         );
     };
-    //endregion
-
-    //endregion
-
-    //region Group functions
-
-    //region Group functions
 
     /**
-     * Gets a list of users on this server according to a set of constraints
-     * @param constraints object with members defining the constraints returned users must meet. Possible conditions are:
-     *              username: a group will only be returned if this user is a member
-     *              group_name: a group will only be returned if its name exactly matches this string
-     *              application: a group will only be returned if it is using this application
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: optional, a string specifying the error that occurred processing the request
-     *        groups: optional, an array of group name strings meeting the request constraints
+     * Retrieves a list of Knecht groups that fit a set of constraints
+     * @param constraints the constraints that determine which accounts are include in the list. Valid members are:
+     *      username : user who must be a member of the group
+     *      host : user who must be hosting the group
+     *      group_name : string the group's name must match exactly
+     *      application : application the game must be running
+     * @param callback function that takes the response JSON object as its sole parameter. Valid members are:
+     *      timestamp: the time at which the server sent the response, in UNIX time
+     *      error: optional, a string specifying the error that occurred processing the request
+     *      groups: optional, an array of groups meeting the request constraints
      */
     K.getGroups = function ( constraints, callback )
     {
+        if( callback === undefined )
+        {
+            callback = constraints;
+            constraints = undefined;
+        }
         _sendRequest( "GET", "groups" +
             "?constraints=" + encodeURIComponent( JSON.stringify( constraints ) ),
-            function ( res )
+            function ( result )
             {
-                callback( res );
-                if( res.error)
+                callback( result );
+                if( result.error)
                 {
-                    _error_callback('getGroups', res.error );
+                    _internal.error( 'K.getGroups()', result.error );
                 }
-            },
-            null
+            }
         );
     };
 
     /**
-     * Initiates a group with the requester as host
-     * @param group_name uniquely identifying string serving as the group name
+     * Initiates a group with the requesting user as host
+     * @param group_name name to be given to the group
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
      */
     K.startGroup = function ( group_name, callback )
     {
+        K.configure( { group_name : group_name });
         _sendRequest( "POST", "groups" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&application=" + _application +
-            "&group_name=" + encodeURIComponent( group_name ),
-            function (result )
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&group_name=" + encodeURIComponent( _internal.group_name ),
+            function ( result )
             {
-                _autoRelog(result, K.startGroup, 'startGroup', [group_name, callback], callback);
-            },
-            null
+                _autoRelog( result, K.startGroup, 'K.startGroup()', [ group_name, callback ] );
+            }
         );
     };
 
     /**
-     * Removes a group and all its related data and information from the server. Notifies all members with pending requests
-     * @param group_name the name of the group to be closed
+     * Closes a group that you are the host of and deletes all associated data
+     * @param group_name name of the group to be closed
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
      */
     K.closeGroup = function ( group_name, callback )
     {
+        if( callback === undefined )
+        {
+            callback = group_name;
+            group_name = _internal.group_name;
+        }
         _sendRequest( "DELETE","groups" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&group_name=" + encodeURIComponent( group_name ),
-            function ( result )
-            {
-                _autoRelog(result, K.closeGroup, 'closeGroup', [group_name, callback], callback);
-            },
-        null
-        );
-    };
-
-    //endregion
-
-    //region Member functions
-
-    /**
-     * Adds a user to the list of members for a group you are the host of
-     * @param group_name string identifying the group to be added to
-     * @param member string identifying the member to be added
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     */
-    K.addMember = function ( group_name, member, callback )
-    {
-        _sendRequest( "POST", "groups/members" +
-            "?username=" + _username +
-            "&session=" + _session +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
             "&group_name=" + encodeURIComponent( group_name ) +
-            "&member=" + encodeURIComponent( member ),
+            "&application=" + encodeURIComponent( _internal.application ),
             function ( result )
             {
-                _autoRelog(result, K.addMember, 'addMember', [group_name, member, callback], callback);
-            },
-        null
+                _autoRelog(result, K.closeGroup, 'K.closeGroup()', [ group_name, callback ] );
+            }
         );
     };
 
     /**
-     * Removes a user from the list of members for a group you are the host of
-     * @param group_name string identifying the group
-     * @param member string identifying the member to be removed
+     * Subscribes to input from users to this group
+     * @param group_name the name of the group to be subscribed to
+     * @param clear previous inputs that can now be safely deleted
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
+     *        input: array of inputs received
+     *        clear: ids of inputs contained in this response
      */
-    K.removeMember = function ( group_name, member, callback )
+    K.listenInput = function( group_name, clear, callback )
     {
-        _sendRequest( "DELETE", "groups/members" +
-            "?username=" + _username +
-            "&session=" + _session +
+        if( callback === undefined)
+        {
+            if(clear === undefined )
+            {
+                callback = group_name;
+                group_name = _internal.group_name;
+                clear = [];
+            }
+            else
+            {
+                callback = clear;
+                if ( group_name instanceof Array)
+                {
+                    clear = group_name;
+                    group_name = _internal.group_name;
+                }
+                else
+                {
+                    clear = [];
+                }
+            }
+        }
+        _sendRequest( "GET", "groups/input" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
             "&group_name=" + encodeURIComponent( group_name ) +
-            "&member=" + encodeURIComponent( member ),
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&clear=" + encodeURIComponent( JSON.stringify(clear) ),
             function ( result )
             {
-                _autoRelog(result, K.removeMember, 'removeMember', [group_name, member, callback], callback);
-            },
-            null
+                _autoRelog( result, K.listenInput, 'K.listenInput()', [group_name, clear, callback] );
+            }
         );
     };
 
-    //endregion
+    /**
+     * Submits input to a group for processing by its host.
+     * @param group_name the name of the group
+     * @param input to send to the group's host
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        timestamp: the time at which the server sent the response, in UNIX time
+     *        error: if present, a string specifying the error that occurred processing the request
+     */
+    K.submitInput = function(group_name, input, callback)
+    {
+        if( callback === undefined)
+        {
+            callback = input;
+            input = group_name;
+            group_name = _internal.group_name;
+        }
+        _sendRequest( "POST", "groups/input" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&group_name=" + encodeURIComponent(group_name) +
+            "&application=" + encodeURIComponent( _internal.application ),
+            input,
+            function ( result )
+            {
+                _autoRelog( result, K.submitInput, 'K.submitInput()', [group_name, input, callback] );
+            }
+        );
+    };
 
-    //region Data functions
+    /**
+     * Subscribes to updates from this group
+     * @param group_name the name of the group to be subscribed to
+     * @param limit maximum size of individual value the server will send with its response
+     * @param clear previous updates that can now be safely deleted
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        timestamp: the time at which the server sent the response, in UNIX time
+     *        error: if present, a string specifying the error that occurred processing the request
+     *        field: array of updated fields
+     *        data: object containing updated values of the above fields
+     *        clear: ids of inputs contained in this response
+     */
+    K.listenUpdate = function( group_name, limit, clear, callback)
+    { //account for left out variables
+        if( callback === undefined )
+        {
+            if( clear === undefined )
+            {
+                if( limit === undefined )
+                {//1 argument
+                    callback = group_name;
+                    group_name = _internal.group_name;
+                    limit = Number.MAX_VALUE;
+                    clear = [];
+                }
+                else
+                {//2 arguments
+                    callback = limit;
+                    if ( typeof group_name === 'string')
+                    {
+                        limit = Number.MAX_VALUE;
+                        clear = [];
+                    }
+                    else if ( typeof group_name === 'number')
+                    {
+                        limit = group_name;
+                        group_name = _internal.group_name;
+                        clear = [];
+                    }
+                    else
+                    {
+                        clear = group_name;
+                        group_name = _internal.group_name;
+                        limit = Number.MAX_VALUE;
+                    }
+                }
+            }
+            else
+            {//3 arguments
+                callback = clear;
+                if ( typeof group_name === 'string')
+                {//group name is present
+                    if ( typeof limit === 'number' )
+                    {//limit is present, clear must be missing
+                        clear = [];
+                    }
+                    else
+                    {//limit is missing
+                        clear =  limit;
+                        limit = Number.MAX_VALUE;
+                    }
+                }
+                else
+                { //group_name is missing
+                    clear = limit;
+                    limit = group_name;
+                    group_name = _internal.group_name;
+                }
+            }
+        }
+        _sendRequest( "GET", "groups/updates" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&group_name=" + encodeURIComponent(group_name) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&limit=" + encodeURIComponent(JSON.stringify(limit)) +
+            "&clear=" + encodeURIComponent(JSON.stringify(clear)),
+            function ( result )
+            {
+                _autoRelog( result, K.listenUpdate, 'K.listenUpdate()', [group_name, limit, clear, callback] );
+            }
+        );
+    };
 
     /**
      * Allows the host of a group to post updated data and notify its members. Optionally, permissions may be set
@@ -556,7 +681,7 @@ var K = {};
      * @param data any object or array of objects containing the data to be stored. Of the same length as fields
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
      * @param member optional string or list of strings identifying the users whose permissions are being set
      * @param permission optional boolean, array of booleans, or array of arrays of booleans indicating whether members
@@ -564,10 +689,20 @@ var K = {};
      */
     K.submitUpdate = function(group_name, field, data, callback, member, permission)
     {
+        if( typeof callback !== 'function' )
+        {//group name left out
+            permission = member;
+            member = callback;
+            callback = data;
+            data = field;
+            field = group_name;
+            group_name = _internal.group_name;
+        }
         var query = "groups/data" + "" +
-            "?username=" + _username +
-            "&session=" + _session +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
             "&group_name=" + encodeURIComponent(group_name) +
+            "&application=" + encodeURIComponent( _internal.application ) +
             "&field=" + encodeURIComponent(JSON.stringify(field));
         if(member)
         {
@@ -577,19 +712,45 @@ var K = {};
         {
             query += "&permission=" + encodeURIComponent(JSON.stringify(permission));
         }
-        _sendRequest( "PUT", query,
+        _sendRequest( "PUT", query, data,
             function ( result )
             {
-                _autoRelog(result, K.submitUpdate, 'submitUpdate',
-                    [group_name, field, data, callback, member, permission], callback);
-            },
-            data
+                _autoRelog(result, K.submitUpdate, 'K.submitUpdate()',
+                    [ group_name, field, data, callback, member, permission ]);
+            }
         );
     };
 
     /**
+     * Cancels the requesting user's subscription to group notifications
+     * @param group_name name of the subscribed group
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        timestamp: the time at which the server sent the response, in UNIX time
+     *        error: if present, a string specifying the error that occurred processing the request
+     */
+    K.stopListening = function ( group_name, callback )
+    {
+        if( callback === undefined )
+        {
+            callback = group_name;
+            group_name = _internal.group_name;
+        }
+        _sendRequest( "DELETE", "groups/subscription" +
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&group_name=" + encodeURIComponent( group_name ) +
+            "&application=" + encodeURIComponent( _internal.application ),
+            function ( result )
+            {
+                _autoRelog( result, K.stopListening, 'K.stopListening()', [ group_name, callback ] );
+            }
+        );
+    }
+
+    /**
      * Retrieves one or more shared data fields from the server
-     * @param group string identifying the group the data belongs to
+     * @param group_name string identifying the group the data belongs to
      * @param field string or array of strings identifying the data to be retrieved
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
@@ -597,38 +758,45 @@ var K = {};
      *        error: if present, a string specifying the error that occurred processing the request
      *        data: if present, an object with members corresponding to the requested data
      */
-    K.getGroupData = function(group, field, callback)
+    K.getGroupData = function( group_name, field, callback )
     {
+        if ( callback === undefined )
+        {
+            callback = field;
+            field = group_name;
+            group_name = _internal.group_name;
+        }
         _sendRequest( "GET", "groups/data" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&group_name=" + encodeURIComponent(group) +
-            "&field=" + encodeURIComponent(JSON.stringify(field)),
-            function (result )
+            "?username=" + encodeURIComponent( _internal.username ) +
+            "&session=" + encodeURIComponent( _internal.session ) +
+            "&group_name=" + encodeURIComponent( group_name ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&field=" + encodeURIComponent( JSON.stringify( field ) ),
+            function ( result )
             {
-                _autoRelog(result, K.getGroupData, 'getGroupData', [group, field, callback], callback);
-            },
-        null
+                _autoRelog( result, K.getGroupData, 'K.getGroupData()', [ group_name, field, callback ] );
+            }
         );
     };
 
     /**
-     *
+     * Changes the read permissions for group data fields and notifies members
      * @param group_name string identifying the group to be acted on
      * @param field string or array of strings identifying the fields being acted on
      * @param permission boolean, array of booleans, or array of booleans indicating whether the permission is granted or revoked
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
      * @param member optionally, a string or array of strings identifying the users the permissions are for
      */
     K.setPermission = function(group_name, field, permission, callback, member)
     {
         var query = "groups/data/permissions" +
-            "?username=" + _username +
-            "&session=" + _session +
+            "?username=" + _internal.username +
+            "&session=" + _internal.session +
             "&group_name=" + encodeURIComponent(group_name) +
+            "&application=" + encodeURIComponent(_internal.application) +
             "&field=" + encodeURIComponent(JSON.stringify(field));
         if(member)
         {
@@ -637,155 +805,33 @@ var K = {};
         _sendRequest( "PUT", query,
             function (result )
             {
-                _autoRelog(result, K.setPermission, 'setPermission', [group_name, field, callback, member], callback);
-            },
-            null
+                _autoRelog(result, K.setPermission, 'K.setPermission()', [group_name, field, callback, member]);
+            }
         );
     };
 
     /**
-     * Subscribes to updates from the server, to be notified when a field changes or a new permission is gained
-     * @param group_name the group to subscribe to
+     * Adds a user to the list of members for a group
+     * @param group_name string identifying the group to be added to
+     * @param member string identifying the member to be added
      * @param callback a function to be called once a response is received from the server
      *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     *        updates: if present, an array of strings identifying fields whose data needs to be re-read
-     *        If not defined and status ok, membership in group has been terminated
-     *        data: if present, an object containing the new data values for fields of size less than the limit
-     * @param limit number indicating maximum size in bytes of data to be retrieved. Only the field name will be sent if data
-     *        exceeds limit. No limit is set if this parameter is undefined
-     * @param clear an array of update ids acknowledged, server no longer needs to keep them
-     */
-    K.listenUpdate = function(group_name, callback, limit, clear)
-    {
-        if(!clear)
-        {
-            clear = [];
-        }
-        if(!limit)
-        {
-            limit = Number.MAX_VALUE;
-        }
-        _sendRequest( "GET", "groups/updates" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&group_name=" + encodeURIComponent(group_name) +
-            "&limit=" + encodeURIComponent(JSON.stringify(limit)) +
-            "&clear=" + encodeURIComponent(JSON.stringify(clear)),
-            function ( result )
-            {
-                if ( result.error === 'Expired Session ID')
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( !login_result.error )
-                        {
-                            K.listenUpdate( group_name, callback, limit, clear );
-                        }
-                        else
-                        {
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    callback(result);
-                    if (!result.error && result.updates !== undefined )
-                    {
-                        K.listenUpdate(group_name, callback, limit, result.clear );
-                    }
-                }
-                if( result.error)
-                {
-                    _error_callback('listenUpdate', result.error );
-                }
-            },
-            null
-        );
-    };
-
-    /**
-     * Subscribes to input from the server, to be notified when a user submits something to a group
-     * @param group_name the group to subscribe to
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
-     *        error: if present, a string specifying the error that occurred processing the request
-     *        inputs: if present, an array of objects identifying the sending user, a timestamp, and their input
-     *        If not defined and status ok, membership in group has been terminated
-     *        data: if present, an object containing the new data values for fields of size less than the limit
-     * @param clear an array of input ids acknowledged, server no longer needs to keep them
-     */
-    K.listenInput = function(group_name, callback, clear)
-    {
-        if(!clear)
-        {
-            clear = [];
-        }
-        _sendRequest( "GET", "groups/input" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&group_name=" + encodeURIComponent(group_name) +
-            "&clear=" + encodeURIComponent(JSON.stringify(clear)),
-            function ( result )
-            {
-                if ( result.error === 'Expired Session ID')
-                {
-                    K.login( _username, _password, function ( login_result )
-                    {
-                        if ( !login_result.error )
-                        {
-                            K.listenInput( group_name, callback, clear );
-                        }
-                        else
-                        {
-                            callback(result);
-                        }
-                    } );
-                }
-                else
-                {
-                    callback(result);
-                    if (!result.error && result.inputs !== undefined )
-                    {
-                        K.listenInput(group_name, callback, result.clear );
-                    }
-                }
-                if( result.error)
-                {
-                    _error_callback('listenInput', result.error );
-                }
-            },
-            null
-        );
-    };
-
-    /**
-     * Submits input to a group for processing by host client
-     * @param group_name string identifying the group
-     * @param input object containing arbitrary input data
-     * @param callback a function to be called once a response is received from the server
-     *        callback must accept a single object as parameter, containing the following members:
-     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        timestamp: the time at which the server sent the response, in UNIX time
      *        error: if present, a string specifying the error that occurred processing the request
      */
-    K.submitInput = function(group_name, input, callback)
+    K.addMember = function ( group_name, member, callback )
     {
-        _sendRequest( "POST", "groups/input" +
-            "?username=" + _username +
-            "&session=" + _session +
-            "&group_name=" + encodeURIComponent(group_name),
+        _sendRequest( "POST", "groups/members" +
+            "?username=" + _internal.username +
+            "&session=" + _internal.session +
+            "&group_name=" + encodeURIComponent( group_name ) +
+            "&application=" + encodeURIComponent( _internal.application ) +
+            "&member=" + encodeURIComponent( member ),
             function ( result )
             {
-                _autoRelog(result, K.submitInput, 'submitInput', [group_name, input, callback], callback);
-            },
-            input
+                _autoRelog(result, K.addMember, 'K.addMember()', [group_name, member, callback]);
+            }
         );
     };
-    //endregion
-
-    //endregion
 
 } () );
