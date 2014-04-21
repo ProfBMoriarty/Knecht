@@ -512,6 +512,32 @@ var K = {};
     };
 
     /**
+     * Removes a user from the list of members for a group you are the host of
+     * @param group_name string identifying the group
+     * @param member string identifying the member to be removed
+     * @param callback a function to be called once a response is received from the server
+     *        callback must accept a single object as parameter, containing the following members:
+     *        timestamp: the time at which the server sent the response, in milliseconds since midnight January 1, 1970
+     *        error: if present, a string specifying the error that occurred processing the request
+     */
+    K.removeMember = function ( group_name, member, callback )
+    {
+        _sendRequest( "DELETE", "groups/members" +
+            "?username=" + _username +
+            "&session=" + _session +
+            "&group_name=" + encodeURIComponent( group_name ) +
+            "&member=" + encodeURIComponent( member ),
+            function ( result )
+            {
+                _autoRelog(result, K.removeMember, 'removeMember', [group_name, member, callback], callback);
+            },
+            null
+        );
+    };
+
+    //endregion
+
+    /**
      * Subscribes to input from users to this group
      * @param group_name the name of the group to be subscribed to
      * @param clear previous inputs that can now be safely deleted
