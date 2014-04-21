@@ -80,7 +80,7 @@
             });
         body.timestamp = new Date().getTime(); //UNIX time the response was completed
         response.end( JSON.stringify( body ) ); //submit response to the client
-        console.log( JSON.stringify( body ) );
+        //console.log( JSON.stringify( body ) );
     }
 
     /**
@@ -1020,7 +1020,21 @@
                                         }
                                         else
                                         {
-                                            _finishResponse(200, response);
+                                            mysql.query(
+                                                "DELETE FROM permissions WHERE group_name = ? AND application = ? AND username = ?;",
+                                                [group_name, application, member],
+                                                function(err)
+                                                {
+                                                    if(err)
+                                                    {//database error
+                                                        _finishResponse(500, response, error.db_err);
+                                                    }
+                                                    else
+                                                    {
+                                                        _finishResponse(200, response);
+                                                    }
+                                                }
+                                            );
                                         }
                                     }
                                 );
@@ -1328,7 +1342,6 @@
                 function(err){
                     if(err)
                     {//database error
-                        console.log(err.toString());
                         _finishResponse(500, response, error.db_err);
                     }
                     else {
@@ -2011,7 +2024,7 @@
         });
         request.on( 'end', function()
         {//once request has been fully received, parse and pass to appropriate function
-            console.log(request.method + " " + request.url);
+            //console.log(request.method + " " + request.url);
             var parsed_url = url.parse( request.url, true );//parse the request url into pathname and query values
             switch( parsed_url.pathname )
             {//direct request to proper resource based on pathname
